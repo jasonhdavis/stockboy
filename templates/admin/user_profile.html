@@ -1,0 +1,101 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+{% if current_user.is_authenticated %}
+
+
+<section class="content">
+    <!-- Left col -->
+        <section class="content-header">
+                <h1>Settings & Import</h1>
+                  <small>Account Settings and Data Import</small>
+          <ol class="breadcrumb">
+              <li><a href="#"><i class="fa fa-dashboard"></i> Home</a></li>
+              <li class="active">Settings & Import</li>
+          </ol>
+        </section>
+        <section class="content-header">
+<div class="user-profile">
+  <div class="page-header">
+    <h2></h2>
+  </div>
+
+  <div class="row float-left">
+    <div class="col-sm-12">
+      <div class="panel panel-primary">
+        <div class="panel-heading">Email Address</div>
+        <div class="panel-body">{{current_user.email}}</div>
+      </div>
+
+      <div class="panel panel-info">
+        <div class="panel-heading">Account Actions</div>
+        <div class="panel-body"><a href="#">Change Email</a></div>
+        <div class="panel-body"><a href="#">Change Password</a></div>
+        {% if current_user.email_confirmed %}
+          <div class="panel-body">Email confirmed on: </div>
+        {% else %}
+          <div class="panel-body">Email has not been confirmed!</div>
+        {% if not current_user.email_confirmed %}
+          <div class="panel-body"><a href="#">Resend Email Confirmation</a></div>
+        {% endif %}
+      </div>
+
+      <div class="panel panel-info">
+        <div class="panel-heading">ShipStation API - <a href="https://ss6.shipstation.com/#/settings/api">(Get your API Key Here)</a></div>
+        <form method="POST">
+
+        <div class="panel-body">
+          <strong>API Key:</strong> {{apiform.key(size=35, value=current_user.ss_key ) }}
+          <strong>API Secret:</strong> {{apiform.secret(size=35, value = current_user.ss_secret) }}
+          {{apiform.submit}}
+        </div>
+
+        </form>
+
+        {% endif %}
+      </div>
+          <div class="panel panel-info">
+            <div class="panel-heading"><h2>Inventory Uploads</h2></div>
+            <div class="panel-body">
+              <h3>Last Updated: {% if current_user.inventory_updated %}{{current_user.inventory_updated}}{% else %}Never{% endif %}</h3>
+              <ol>
+                <li>Go to: <a href="https://ss6.shipstation.com/#/dashboard/reports">Shipstation Reports</a></li>
+                <li>Click <a href="https://ss6.shipstation.com/#/dashboard/report/InvStock">Inventory Status Report</a></li>
+                <li>Group Products by Parent SKU: <strong>No</strong></li>
+                <li>Click Export to Excel</li>
+              </ol>
+            <h4>Upload Here:</h4>
+            <form method="POST" enctype="multipart/form-data">
+              {{ inventoryform.hidden_tag() }}
+              {{inventoryform.file.label}}
+              {{ inventoryform.file}}
+              {{inventoryform.submit}}
+            </form>
+        </div>
+      </div>
+      <div class="panel panel-info">
+        <div class="panel-heading"><h2>Alias Uploads</h2></div>
+        <div class="panel-body">
+          <h3>Last Updated: {% if current_user.alias_updated %}{{current_user.alias_updated}}{%else%}Never{% endif %}</h3>
+          <ol>
+            <li>Go to: <a href="https://ss6.shipstation.com/#/dashboard/reports">Shipstation Reports</a></li>
+            <li>Click <a href="https://ss6.shipstation.com/#/dashboard/report/ProductAliasExtract">Product Aliases Export</a></li>
+            <li>Show Product Aliases for : <strong>All Product SKUs</strong></li>
+            <li>Click Export to Excel</li>
+          </ol>
+        <h4>Upload Here:</h4>
+        <form method="POST" enctype="multipart/form-data">
+          {{ aliasform.hidden_tag() }}
+          {{aliasform.file.label}}
+          {{ aliasform.file}}
+          {{aliasform.submit}}
+        </form>
+    </div>
+  </div>
+
+  </div>
+</div>
+</section>
+{% endif %}
+
+{% endblock %}
