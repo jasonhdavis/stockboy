@@ -132,6 +132,26 @@ def ItemChartBuilder(cursor, date_dict, alias_dict):
             #if "Discount" in name :
                 #continue
 
+            ## Discount Handler ##
+            ## To be implemented ##
+            #discount = 0
+            #discount_percent = False
+
+            #for item in l['items']:
+            #    iter_sku = item['sku']
+            #    if 'Discount' in item['name'] :
+            #        discount = item['unitPrice']
+
+            #    if iter_sku not in alias_list :
+            #        continue
+            #if discount != 0 :
+            #    if discount < 0:
+            #        discount = discount * -1
+            #    gross = discount+order_total
+            #    discount_percent = discount/gross
+
+            #    item_discount = sales_total*discount_percent
+
             if sku == "":
                 continue
             qty = item['quantity']
@@ -223,13 +243,6 @@ class MongoUserView(MyModelView):
     #form_excluded_columns = column_exclude_list
     column_details_exclude_list = column_exclude_list
     column_filters = column_editable_list
-
-#class SettingsView(BaseView):
-    #@expose('/',methods=('GET','POST'))
-#    def Import():
-#        column_editable_list = ['email', 'first_name', 'last_name']
-#        column_exclude_list = ['password']
-#        column_details_exclude_list = column_exclude_list
 
 class InventoryView(BaseView):
     @expose('/',methods=('GET', 'POST'))
@@ -367,8 +380,8 @@ class SalesView(BaseView):
         {'paymentDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
-
         item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict)
+
         top_bar = []
         sales_total = 0
         qty_total = 0
@@ -465,135 +478,73 @@ class ProductView(BaseView):
         #{'created':{'$lt':datetime.datetime.now(), '$gt':datetime.datetime.now() - timedelta(days=10)}}
         #return str(mdb)
         product_details = {}
+
+        ### Build a Product Detail view across API models
         details = mongo.db.products.find_one({'sku':item_sku})
         #product_details['created'] = details['createDate']
         #product_details['category'] = details['productCategory']['name']
         product_details['sku'] = item_sku
-
         #inv_details = mongo.db.inventory.find_one({'SKU':item_sku})
         #product_details['stock'] = inv_details['Stock']
         #product_details['avg cost'] = inv_details['Avg Cost']
 
-        if formvalue :
-            daterange = formvalue.split(' - ')
-            start = datetime.strptime(daterange[0],'%m/%d/%Y')
-            end = datetime.strptime(daterange[1], '%m/%d/%Y')
-            sub = (today - end).days
-            day_diff = (end- start).days
-            start_date = start.strftime('%m/%d/%Y')
-            end_date = end.strftime('%m/%d/%Y')
+        start, end = DateFormHanlder(formvalue)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
 
-        else :
-            start = today - timedelta(days=30)
-            end = today
-            day_diff = 30
-            start_date = start.strftime('%m/%d/%Y')
-            end_date = end.strftime('%m/%d/%Y')
+        date_dict, labels = DateDictBuilder(start, end)
 
-        i = 0
-        values = []
-        labels = []
-        orders= []
-        shipped_to_amz = 0
         # Sku, Name, Sales, Qty
-        items_chart = []
-        sku_list = []
         name = False
         img = False
-        # Individual Product Alias
-        alias_list = [item_sku]
-        alias_search = mongo.db.alias.find({"$and":[{'Owner':current_user.email},{'Product SKU': item_sku}]})
-        for alias in alias_search :
-            alias_list.append(alias['Alias'])
-
-
         email = current_user.email
-        while i <= day_diff :
-            day_total =[]
-            row = []
-            # Iter through days
-            day = start + timedelta(days=i)
-            labels.append(day.strftime('%m-%d-%Y'))
 
-            # All Owner Orders with SKU in Items ordered, extract only target sku
-            list = mongo.db.orders.find({'$and':[
-            {'paymentDate':{'$lt': day+timedelta(days=1), '$gt':day}},
-            {'owner':email},
-            {'items.sku':{"$in":alias_list}}
-            ]})
-            #column_day = first_day + timedelta(days=i)
-            day_sales = 0
-            day_qty = 0
-            item_discount = 0
-            # list is one day, l is one order
-            for l in list :
-                ### SKIP ALL OUTBOUND TO AMAZON
-                ### ADD USER PREFRENCE LOGIC
-                ship_to = l['shipTo']['name']
-                if ship_to.find('Amazon') >-1 or ship_to.find('Golden State FC') >-1:
-                    for item in l['items'] :
-                        if item['sku'] in alias_list :
-                            shipped_to_amz += item['quantity']
-                    continue
-                #delta_day = l['paymentDate']
-                #t_delta = delta_day - column_day
-                #if t_delta <= timedelta(days=1) :
-                #orders.append(l)
-                sale_total = 0
-                order_total = l['orderTotal']
-                discount = 0
-                discount_percent = False
+        # Individual Product Alias
+        alias_search = mongo.db.alias.find({"$and":[{'Owner':current_user.email},{'Product SKU': item_sku}]})
+        alias_dict = AliasDictBuilder(alias_search)
+        alias_list = alias_dict.keys()
+        alias_list.append(item_sku)
 
-                for item in l['items']:
-                    alias_search = []
-                    iter_sku = item['sku']
-                    if 'Discount' in item['name'] :
-                        discount = item['unitPrice']
+        range_search = mongo.db.orders.find(
+            {'$and':[
+                {'paymentDate':{'$lt': end, '$gt':start}},
+                {'owner':email},
+                {'items.sku':{"$in":alias_list}}
+                ]})
 
-                    if iter_sku not in alias_list :
-                        continue
+        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict)
 
-                    if not name :
-                        ## The first time we see the item, get the name
+        clean_chart = []
+        for row in item_chart :
+            if row[0] not in alias_list:
+                shipped_to_amz = shipped_to_amz- row[3]
+            else :
+                clean_chart.append(row)
+        item_chart = clean_chart
+        ## The first time we see the item, get the name
+        range_search.rewind()
+        for order in range_search :
+            for item in order['items'] :
+                if not name or not img:
+                    if item['sku'] in alias_list:
                         name = item['name']
-                    if not img :
                         img = item['imageUrl']
-
-                    day_qty += item['quantity']
-                    sales_total = item['unitPrice']*item['quantity']
-
-                day_sales += sales_total
-
-                if discount != 0 :
-                    if discount < 0:
-                        discount = discount * -1
-                    gross = discount+order_total
-                    discount_percent = discount/gross
-
-                    item_discount = sales_total*discount_percent
-
-            row.append(day.strftime('%m-%d-%Y'))
-            row.append(day_sales)
-            row.append(day_qty)
-            row.append(item_discount)
-            items_chart.append(row)
-
-            values.append(day_sales)
-            i+=1
-            #Calculate Burn Rate
+                else :
+                    continue
 
         top_bar = []
         sales_total = 0
         qty_total = 0
 
-        for row in items_chart :
-            sales_total += row[1]
-            qty_total += row[2]
+        for row in item_chart :
+            sales_total += row[2]
+            qty_total += row[3]
 
         top_bar.append(sales_total)
         top_bar.append(qty_total)
         top_bar.append(shipped_to_amz)
-        avg_burn = qty_total / day_diff
+        avg_burn = qty_total / delta_range
         top_bar.append(avg_burn)
 
         max_values = max(values)
@@ -601,7 +552,7 @@ class ProductView(BaseView):
         product_details['name'] = name
         product_details['img'] = img
 
-        return self.render('admin/product_sku.html', product_details=product_details, alias_list=alias_list, top=top_bar,orders=items_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
+        return self.render('admin/product_sku.html', product_details=product_details, alias_list=alias_list, top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
 
 
         #return self.render('sales_index.html')
@@ -638,10 +589,12 @@ def bar():
 
 # Create admin
 admin = flask_admin.Admin(
-    app,'Stock Boy',
+    app,'Stockboy',
     base_template='my_master.html',
     template_mode='bootstrap3',
     url = '/dashboard'
+    #index_view = DashboardView()
+
 )
 
 # Add model views
