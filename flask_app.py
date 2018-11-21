@@ -503,7 +503,7 @@ class ProductView(BaseView):
         # Individual Product Alias
         alias_search = mongo.db.alias.find({"$and":[{'Owner':current_user.email},{'Product SKU': item_sku}]})
         alias_dict = AliasDictBuilder(alias_search)
-        alias_list = alias_dict.keys()
+        alias_list = list(alias_dict.keys())
         alias_list.append(item_sku)
 
         range_search = mongo.db.orders.find(
