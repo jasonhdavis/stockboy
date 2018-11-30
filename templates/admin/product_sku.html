@@ -1,81 +1,6 @@
 {% extends 'admin/master.html' %}
 {% block body %}
 {{ super() }}
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
-<link rel="stylesheet" type="text/css" href="../../static/css/bootstrap.css" />
-
-<link href="../../static/css/datatables.min.css" rel="stylesheet">
-<script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
-
-<style>
-  table.dataTable thead>tr>td.sorting,
-table.dataTable thead>tr>td.sorting_asc,
-table.dataTable thead>tr>td.sorting_desc,
-table.dataTable thead>tr>th.sorting,
-table.dataTable thead>tr>th.sorting_asc,
-table.dataTable thead>tr>th.sorting_desc {
-  padding-right: 30px
-}
-
-table.dataTable thead .sorting,
-table.dataTable thead .sorting_asc,
-table.dataTable thead .sorting_asc_disabled,
-table.dataTable thead .sorting_desc,
-table.dataTable thead .sorting_desc_disabled {
-  cursor: pointer;
-  position: relative
-}
-
-table.dataTable thead .sorting:after,
-table.dataTable thead .sorting:before,
-table.dataTable thead .sorting_asc:after,
-table.dataTable thead .sorting_asc:before,
-table.dataTable thead .sorting_asc_disabled:after,
-table.dataTable thead .sorting_asc_disabled:before,
-table.dataTable thead .sorting_desc:after,
-table.dataTable thead .sorting_desc:before,
-table.dataTable thead .sorting_desc_disabled:after,
-table.dataTable thead .sorting_desc_disabled:before {
-  position: absolute;
-  bottom: .9em;
-  display: block;
-  opacity: .3
-}
-
-table.dataTable thead .sorting:before,
-table.dataTable thead .sorting_asc:before,
-table.dataTable thead .sorting_asc_disabled:before,
-table.dataTable thead .sorting_desc:before,
-table.dataTable thead .sorting_desc_disabled:before {
-  right: 1em;
-  content: "\f0de";
-  font-family: FontAwesome;
-  font-size: 1rem
-}
-
-table.dataTable thead .sorting:after,
-table.dataTable thead .sorting_asc:after,
-table.dataTable thead .sorting_asc_disabled:after,
-table.dataTable thead .sorting_desc:after,
-table.dataTable thead .sorting_desc_disabled:after {
-  content: "\f0dd";
-  font-family: FontAwesome;
-  right: 16px;
-  font-size: 1rem
-}
-
-table.dataTable thead .sorting_asc:before,
-table.dataTable thead .sorting_desc:after {
-  opacity: 1
-}
-
-table.dataTable thead .sorting_asc_disabled:before,
-table.dataTable thead .sorting_desc_disabled:after {
-  opacity: 0
-}
-</style>
-
-
 
 {% if current_user.is_authenticated %}
 
@@ -88,16 +13,15 @@ table.dataTable thead .sorting_desc_disabled:after {
     <!-- Left col -->
     <section class="container">
         <section class="content-header">
-
           <ol class="breadcrumb">
               <li><a href="../../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
               <li><a href="../"><i class="fa fa-shopping-bag"></i>Products</a></li>
               <li class="active">{{product_details['sku']}}</li>
           </ol>
           <div class="date-picker col-xs-3">
-            <form class="float-right inline-block" id ='daterangeform' action="{{product_details['sku']}}" method="post">
+            <form id ='daterangeform' action="{{product_details['sku']}}" method="post">
               <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-                <input class="form-control" type="text" name="daterange" >
+                <input autocomplete="off" class="form-control" type="text" name="daterange" >
                 <input type="submit" name="submit" id="date-submit" value="Go">
             </form>
             <script>
@@ -126,7 +50,7 @@ table.dataTable thead .sorting_desc_disabled:after {
 
                 <h1>{{product_details['name']}}</h1>
                   <small>Gross Sales for product: {{product_details['sku']}}</small>
-
+        </div>
 
         </section>
         <section class="content">
@@ -263,156 +187,6 @@ table.dataTable thead .sorting_desc_disabled:after {
   {% endif %}
 
   {% endblock body %}
-  {% block tail_js %}
-  <!-- jQuery 2.2.3 -->
-
-    <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js'></script>
-
-  <script type="text/javascript" src="../../static/js/datatables.min.js"></script>
-  <!-- jQuery UI 1.11.4 -->
-
-    <!-- Resolve conflict in jQuery UI tooltip with Bootstrap tooltip -->
-    <script>
-      $.widget.bridge('uibutton', $.ui.button);
-    </script>
-    <!-- Bootstrap 3.3.6 -->
-    <script src="{{url_for('static',filename='js/bootstrap.min.js')}}"></script>
-    <script src="{{ admin_static.url(filename='vendor/select2/select2.min.js', v='3.5.2') }}" type="text/javascript"></script>
-
-    {% if admin_view.extra_js %}
-    {% for js_url in admin_view.extra_js %}
-    <script src="{{ js_url }}" type="text/javascript"></script>
-    {% endfor %}
-    {% endif %}
-
-    <!-- Morris.js charts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
-
-    <!-- Sparkline -->
-    <script src="{{url_for('static',filename='plugins/sparkline/jquery.sparkline.min.js')}}"></script>
-    <!-- jvectormap -->
-    <script src="{{url_for('static',filename='plugins/jvectormap/jquery-jvectormap-1.2.2.min.js')}}"></script>
-    <script src="{{url_for('static',filename='plugins/jvectormap/jquery-jvectormap-world-mill-en.js')}}"></script>
-    <!-- jQuery Knob Chart -->
-    <!-- daterangepicker -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.11.2/moment.min.js"></script>
-    <script src="{{url_for('static',filename='plugins/daterangepicker/daterangepicker.js')}}"></script>
-    <!-- datepicker -->
-    <script src="{{url_for('static',filename='plugins/datepicker/bootstrap-datepicker.js')}}"></script>
-    <!-- Bootstrap WYSIHTML5 -->
-    <script src="{{url_for('static',filename='plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.all.min.js')}}"></script>
-    <!-- Slimscroll -->
-    <script src="{{url_for('static',filename='plugins/slimScroll/jquery.slimscroll.min.js')}}"></script>
-    <!-- FastClick -->
-    <script src="{{url_for('static',filename='plugins/fastclick/fastclick.js')}}"></script>
-    <!-- AdminLTE App -->
-    <script src="{{url_for('static',filename='js/app.min.js')}}"></script>
-    <!-- AdminLTE for demo purposes -->
-    <script src="{{url_for('static',filename='js/demo.js')}}"></script>
-    {% if admin_view.name=="Home" %}
-      <script src="{{url_for('static',filename='js/pages/dashboard.js')}}"></script>
-    {% endif %}
-
-      <script>
-
-
-        Chart.defaults.global.animationSteps = 25;
-        Chart.defaults.global.tooltips.YPadding = 50;
-        Chart.defaults.global.tooltips.titleFontSize = 20;
-        Chart.defaults.global.tooltips.bodyFontSize = 20;
-        Chart.defaults.global.tooltips.displayColors = false;
-        Chart.defaults.global.tooltips.CornerRadius = 2;
-        Chart.defaults.global.tooltips.TitleFontStyle = "normal";
-        Chart.defaults.global.tooltips.FillColor = "rgba(0,0,0,0.8)";
-        Chart.defaults.global.animationEasing = "linear";
-        Chart.defaults.global.responsive = true;
-
-
-
-        // get bar chart canvas
-        var mychart = document.getElementById("chart").getContext("2d");
-        steps = 10
-        max = {{ max }}
-
-                // bar chart data
-
-        var gradientFill = mychart.createLinearGradient(0,500,0,300);
-        gradientFill.addColorStop(0, "rgba(84, 184, 143, 0.3)");
-        //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-        gradientFill.addColorStop(1, "rgba(84, 184, 143, 0.6)");
-        // draw bar chart
-        //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-        //gradientFill.addColorStop(0, "rgba(84,184,143,0.6)");
-        //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-
-        var lineData = {
-          labels : [
-            {% for item in labels %}
-              "{{ item }}",
-            {% endfor %}
-          ],
-          datasets : [{
-            backgroundColor: gradientFill,
-            pointBackgroundColor: "rgba(84, 184, 143, 0.8)",
-            pointRadius:3,
-            pointPadding: 3,
-            lineTension: 0.3,
-
-            data : [
-  	    {% for item in values %}
-                {{ item }},
-              {% endfor %}]
-            }
-  	]
-        }
-
-        var LineChartDemo = new Chart(mychart, {
-          type:'line',
-          data:lineData,
-          options: {
-          pointHitRadius: 100,
-          scaleShowVerticalLines: true,
-          scaleShowGridLines : true,
-          barShowStroke : true,
-          scaleShowLabels: true,
-          bezierCurve: false,
-          responsive: true,
-          legend:{
-            display: false,
-          },
-          scales: {
-            yAxes:[{
-              ticks:{
-                beginAtZero: true
-              }
-            }]
-          },
-
-          tooltips: {
-               callbacks: {
-                   label: function(tooltipItems, data) {
-                       return '$' +tooltipItems.yLabel;
-                   }
-               }
-           }
-
-
-        }
-        });
-      </script>
-      <script>
-        $(document).ready(function () {
-          $('#dtBasicExample').DataTable({
-           "paging": false, // false to disable pagination (or any other option)
-           "order":[[3, "desc"]],
-           "searching": false
-            });
-        $('.dataTables_length').addClass('bs-select');
-      });
-
-      </script>
-  {% endblock tail_js%}
 
   {% block tail %}
   {% endblock tail %}

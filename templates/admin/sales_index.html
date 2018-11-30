@@ -1,84 +1,10 @@
-{% extends 'admin/master.html' %}
+{% extends 'admin/base.html' %}
 {% block body %}
 {{ super() }}
 {% if current_user.is_authenticated %}
 
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
-<link rel="stylesheet" type="text/css" href="../../static/css/bootstrap.css" />
-<link href="../../static/css/datatables.min.css" rel="stylesheet">
-
-<style>
-  table.dataTable thead>tr>td.sorting,
-table.dataTable thead>tr>td.sorting_asc,
-table.dataTable thead>tr>td.sorting_desc,
-table.dataTable thead>tr>th.sorting,
-table.dataTable thead>tr>th.sorting_asc,
-table.dataTable thead>tr>th.sorting_desc {
-  padding-right: 30px
-}
-
-table.dataTable thead .sorting,
-table.dataTable thead .sorting_asc,
-table.dataTable thead .sorting_asc_disabled,
-table.dataTable thead .sorting_desc,
-table.dataTable thead .sorting_desc_disabled {
-  cursor: pointer;
-  position: relative
-}
-
-table.dataTable thead .sorting:after,
-table.dataTable thead .sorting:before,
-table.dataTable thead .sorting_asc:after,
-table.dataTable thead .sorting_asc:before,
-table.dataTable thead .sorting_asc_disabled:after,
-table.dataTable thead .sorting_asc_disabled:before,
-table.dataTable thead .sorting_desc:after,
-table.dataTable thead .sorting_desc:before,
-table.dataTable thead .sorting_desc_disabled:after,
-table.dataTable thead .sorting_desc_disabled:before {
-  position: absolute;
-  bottom: .9em;
-  display: block;
-  opacity: .3
-}
-
-table.dataTable thead .sorting:before,
-table.dataTable thead .sorting_asc:before,
-table.dataTable thead .sorting_asc_disabled:before,
-table.dataTable thead .sorting_desc:before,
-table.dataTable thead .sorting_desc_disabled:before {
-  right: 1em;
-  content: "\f0de";
-  font-family: FontAwesome;
-  font-size: 1rem
-}
-
-table.dataTable thead .sorting:after,
-table.dataTable thead .sorting_asc:after,
-table.dataTable thead .sorting_asc_disabled:after,
-table.dataTable thead .sorting_desc:after,
-table.dataTable thead .sorting_desc_disabled:after {
-  content: "\f0dd";
-  font-family: FontAwesome;
-  right: 16px;
-  font-size: 1rem
-}
-
-table.dataTable thead .sorting_asc:before,
-table.dataTable thead .sorting_desc:after {
-  opacity: 1
-}
-
-table.dataTable thead .sorting_asc_disabled:before,
-table.dataTable thead .sorting_desc_disabled:after {
-  opacity: 0
-}
-</style>
-
-
 
 <!-- Content Header (Page header) -->
-
 
 <section class="content">
 
@@ -87,23 +13,22 @@ table.dataTable thead .sorting_desc_disabled:after {
     <!-- Left col -->
     <section class="container">
         <section class="content-header">
-                <h1>Sales</h1>
-                  <small>Total order value (including shipping) combined by product alias</small>
           <ol class="breadcrumb">
               <li><a href="#"><i class="fa fa-dashboard"></i> Home</a></li>
               <li class="active">Dashboard</li>
           </ol>
-        </section>
-        <section class="content-header">
+
+        <div class="date-picker col-xs-3">
+
           <form autocomplete="off"  id ='daterangeform' action="{{url_for('sales.index')}}" method="post">
-            <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-              <input class="form-control" type="text" name="daterange" >
-              <input type="submit" name="submit" value="Go">
+            <label for="daterange" class="col-2 col-form-label">Select Date Range</label>
+              <input class="form-control" type="text" name="daterange-top" >
+              <input type="submit" name="submit" id="date-submit" value="Go">
           </form>
 
           <script>
           $(function() {
-            $('input[name="daterange"]').daterangepicker({
+            $('input[name="daterange-top"]').daterangepicker({
               ranges: {
               'Today': [moment(), moment()],
               'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
@@ -121,13 +46,20 @@ table.dataTable thead .sorting_desc_disabled:after {
           });
           });
           </script>
+        </div>
+
+      <div class="col-lg-12">
+
+        <h1>Sales</h1>
+          <small>Total order value (including shipping) combined by product alias</small>
+        </div>
         </section>
         <section class="content">
           <!-- Small boxes (Stat box) -->
           <div class="row">
             <div class="col-lg-3 col-xs-6">
               <!-- small box -->
-              <div class="small-box bg-aqua">
+              <div class="small-box bg-success">
                 <div class="inner">
                   <h3>${{ "{:,.2f}".format(top[0]) }}</h3>
                   <p>Sales</p>
@@ -141,7 +73,7 @@ table.dataTable thead .sorting_desc_disabled:after {
         <!-- ./col -->
         <div class="col-lg-3 col-xs-6">
           <!-- small box -->
-          <div class="small-box bg-teal">
+          <div class="small-box bg-info">
             <div class="inner">
               <h3>{{"{:,}".format(top[1])}}</h3>
 
@@ -156,7 +88,7 @@ table.dataTable thead .sorting_desc_disabled:after {
         <!-- ./col -->
         <div class="col-lg-3 col-xs-6">
           <!-- small box -->
-          <div class="small-box bg-olive">
+          <div class="small-box bg-warning">
             <div class="inner">
               <h3>{{"{:,}".format(top[2])}}</h3>
 
@@ -171,7 +103,7 @@ table.dataTable thead .sorting_desc_disabled:after {
         <!-- ./col -->
         <div class="col-lg-3 col-xs-6">
           <!-- small box -->
-          <div class="small-box bg-maroon">
+          <div class="small-box bg-danger">
             <div class="inner">
               <h3>{{"{:,}".format(top[3])}}</h3>
 
@@ -226,151 +158,6 @@ table.dataTable thead .sorting_desc_disabled:after {
   {% endif %}
 
   {% endblock body %}
-  {% block tail_js %}
-  <!-- jQuery 2.2.3 -->
-  <script src="{{url_for('static',filename='plugins/jQuery/jquery-2.2.3.min.js')}}"></script>
-  <!-- jQuery UI 1.11.4 -->
-  <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
-  <!-- Resolve conflict in jQuery UI tooltip with Bootstrap tooltip -->
-  <script>
-    $.widget.bridge('uibutton', $.ui.button);
-  </script>
-  <!-- Bootstrap 3.3.6 -->
-  <script src="{{url_for('static',filename='js/bootstrap.min.js')}}"></script>
-  <script src="{{ admin_static.url(filename='vendor/select2/select2.min.js', v='3.5.2') }}" type="text/javascript"></script>
-
-  {% if admin_view.extra_js %}
-  {% for js_url in admin_view.extra_js %}
-  <script src="{{ js_url }}" type="text/javascript"></script>
-  {% endfor %}
-  {% endif %}
-
-
-  <!-- daterangepicker -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.11.2/moment.min.js"></script>
-  <script src="{{url_for('static',filename='plugins/daterangepicker/daterangepicker.js')}}"></script>
-  <!-- datepicker -->
-  <script src="{{url_for('static',filename='plugins/datepicker/bootstrap-datepicker.js')}}"></script>
-  <!-- Bootstrap WYSIHTML5 -->
-  <script src="{{url_for('static',filename='plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.all.min.js')}}"></script>
-  <!-- Slimscroll -->
-  <script src="{{url_for('static',filename='plugins/slimScroll/jquery.slimscroll.min.js')}}"></script>
-  <!-- FastClick -->
-  <script src="{{url_for('static',filename='plugins/fastclick/fastclick.js')}}"></script>
-  <!-- AdminLTE App -->
-  <script src="{{url_for('static',filename='js/app.min.js')}}"></script>
-  <!-- AdminLTE for demo purposes -->
-  <script src="{{url_for('static',filename='js/demo.js')}}"></script>
-
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-  <script type="text/javascript" src="../../static/js/datatables.min.js"></script>
-  {% if admin_view.name=="Home" %}
-    <script src="{{url_for('static',filename='js/pages/dashboard.js')}}"></script>
-  {% endif %}
-
-      <script>
-
-
-        // bar chart data
-
-        var barData = {
-          labels : [
-            {% for item in labels %}
-              "{{ item }}",
-            {% endfor %}
-          ],
-          datasets : [{
-            fillColor: "rgba(67,160,246,0.2)",
-            strokeColor: "rgba(36,78,177,1)",
-            pointColor: "rgba(36,78,177,1)",
-            pointStrokeColor: "#fff",
-            pointHighlightFill: "#fff",
-            pointHighlightStroke: "rgba(151,187,205,1)",
-            bezierCurve : true,
-            data : [
-  	    {% for item in values %}
-                {{ item }},
-              {% endfor %}]
-            }
-  	]
-        }
-
-        Chart.defaults.global.animationSteps = 70;
-        Chart.defaults.global.tooltipYPadding = 3;
-        Chart.defaults.global.tooltipCornerRadius = 2;
-        Chart.defaults.global.tooltipTitleFontStyle = "normal";
-        Chart.defaults.global.tooltipFillColor = "rgba(0,0,0,0.8)";
-        Chart.defaults.global.animationEasing = "easeInElastic";
-        Chart.defaults.global.responsive = true;
-        Chart.defaults.global.scaleLineColor = "black";
-        Chart.defaults.global.scaleFontSize = 16;
-        // get bar chart canvas
-        var mychart = document.getElementById("chart").getContext("2d");
-        steps = 10
-        max = {{ max }}
-        // draw bar chart
-        var LineChartDemo = new Chart(mychart).Line(barData, {
-          scaleOverride: true,
-          scaleSteps: steps,
-          scaleStepWidth: Math.ceil(max / steps),
-          scaleStartValue: 0,
-          scaleShowVerticalLines: true,
-          scaleShowGridLines : true,
-          barShowStroke : true,
-          scaleShowLabels: true,
-          bezierCurve: false,
-        });
-      </script>
-      <script>
-        $(document).ready(function () {
-        $('#dtBasicExample').DataTable({
-         "paging": false, // false to disable pagination (or any other option)
-         "order":[[3, "desc"]],
-         "language":{
-           "search":"",
-           "searchPlaceholder":"Search. . ."
-         }
-          });
-      $('.dataTables_length').addClass('bs-select');
-      });
-
-      function downloadCSV(csv, filename) {
-    var csvFile;
-    var downloadLink;
-
-    // CSV file
-    csvFile = new Blob([csv], {type: "text/csv"});
-    // Download link
-    downloadLink = document.createElement("a");
-    // File name
-    downloadLink.download = filename;
-    // Create a link to the file
-    downloadLink.href = window.URL.createObjectURL(csvFile);
-    // Hide download link
-    downloadLink.style.display = "none";
-    // Add the link to DOM
-    document.body.appendChild(downloadLink);
-    // Click download link
-    downloadLink.click();
-}
-      function exportTableToCSV(filename) {
-          var csv = [];
-          var rows = document.querySelectorAll("table tr");
-
-          for (var i = 0; i < rows.length; i++) {
-              var row = [], cols = rows[i].querySelectorAll("td, th");
-
-              for (var j = 0; j < cols.length; j++)
-                  row.push('"'+cols[j].innerText+'"');
-
-              csv.push(row.join(","));
-          }
-
-          // Download CSV file
-          downloadCSV(csv.join("\n"), filename);
-      }
-      </script>
-  {% endblock tail_js%}
 
   {% block tail %}
   {% endblock tail %}

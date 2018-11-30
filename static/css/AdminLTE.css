@@ -5440,6 +5440,7 @@ header a.logo, aside.main-sidebar {
 .main-sidebar li.active a, .main-sidebar li a:hover {
 	background-color: #222 !important;
 	color: #00bc8c !important;
+	border-color: #00bc8c !important;
 }
 
 .content-header {
@@ -5447,6 +5448,10 @@ header a.logo, aside.main-sidebar {
 	padding-bottom: 1em;
 	margin-bottom: 1em;
 	width: 100%;
+}
+
+.content-header .col-lg-12{
+	float: left;
 }
 
 .content-header small {
@@ -5457,20 +5462,6 @@ header a.logo, aside.main-sidebar {
 	float: right;
 	clear: both;
 	margin-right: -15px !important;
-}
-
-.content-header div.date-picker {
-	width: 35rem;
-	float: left;
-	padding-bottom: 2em;
-
-}
-
-.content-header div.date-picker input {
-	float: left;
-	clear: none;
-	display: inline-block;
-	width: 70%;
 }
 
 .content-header .date-picker input#date-submit, button {
@@ -5492,6 +5483,29 @@ header a.logo, aside.main-sidebar {
 	display: block;
 	clear: left;
 }
+
+/* @group DatePicker */
+
+div.daterangepicker  {
+	color: #000 !important;
+	display: none;
+	float: left;
+}
+
+.content-header div.date-picker {
+	width: 35rem;
+	float: left;
+	padding-bottom: 2em;
+
+}
+
+.content-header div.date-picker input {
+	float: left;
+	clear: none;
+	width: 70%;
+}
+
+/* @end */
 
 .content-header ol.breadcrumb{
 	padding-bottom: 1em;
@@ -5793,8 +5807,7 @@ button.bg-dark:focus {
 
 /* @group Datatable */
 
-
-  table.dataTable thead>tr>td.sorting,
+table.dataTable thead>tr>td.sorting,
 table.dataTable thead>tr>td.sorting_asc,
 table.dataTable thead>tr>td.sorting_desc,
 table.dataTable thead>tr>th.sorting,
