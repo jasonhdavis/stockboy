@@ -69,7 +69,7 @@ def DateDictBuilder(start,end):
         year = iter_date.year
         month = iter_date.month
         day = iter_date.day
-        labels.append(iter_date.strftime('%m-%d-%Y'))
+        labels.append(iter_date.strftime('%m-%d'))
         if str(year) in y_keys and str(month)+"-"+str(year) in m_keys :
             date_dict[year][month][day] = 0
         elif str(year) in y_keys :
@@ -102,20 +102,47 @@ def AliasDictBuilder(cursor):
         alias_dict[alias['Alias']] = alias['Product SKU']
     return alias_dict
 
-def ItemChartBuilder(cursor, date_dict, alias_dict):
+
+            #def DiscountHandler():
+                #if "Discount" in name :
+                    #continue
+
+                ## Discount Handler ##
+
+                #discount = 0
+                #discount_percent = False
+
+                #for item in l['items']:
+                #    iter_sku = item['sku']
+                #    if 'Discount' in item['name'] :
+                #        discount = item['unitPrice']
+
+                #    if iter_sku not in alias_list :
+                #        continue
+                #if discount != 0 :
+                #    if discount < 0:
+                #        discount = discount * -1
+                #    gross = discount+order_total
+                #    discount_percent = discount/gross
+
+                #    item_discount = sales_total*discount_percent`
+
+
+def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     shipped_to_amz = 0
     item_chart = []
     sku_list = []
     for order in cursor :
         # Sum Order Totals
         payment_date = order['paymentDate']
-        date_dict[payment_date.year][payment_date.month][payment_date.day]+= order['orderTotal']
 
         # Count Amz Quantity
         ship_to = order['shipTo']['name']
         if ship_to.find('Amazon') >-1 or ship_to.find('Golden State FC') >-1:
             for item in order['items'] :
-                shipped_to_amz += item['quantity']
+                sku = item['sku']
+                if sku == item_sku or item_sku == 'All':
+                    shipped_to_amz += item['quantity']
                 # Do nothing with these duplicate quantities
             continue
 
@@ -128,32 +155,12 @@ def ItemChartBuilder(cursor, date_dict, alias_dict):
             if sku in alias_dict :
                 sku = alias_dict[sku]
 
-            name = item['name']
-            #if "Discount" in name :
-                #continue
-
-            ## Discount Handler ##
             ## To be implemented ##
-            #discount = 0
-            #discount_percent = False
-
-            #for item in l['items']:
-            #    iter_sku = item['sku']
-            #    if 'Discount' in item['name'] :
-            #        discount = item['unitPrice']
-
-            #    if iter_sku not in alias_list :
-            #        continue
-            #if discount != 0 :
-            #    if discount < 0:
-            #        discount = discount * -1
-            #    gross = discount+order_total
-            #    discount_percent = discount/gross
-
-            #    item_discount = sales_total*discount_percent
 
             if sku == "":
                 continue
+
+            name = item['name']
             qty = item['quantity']
             sales = item['unitPrice']*qty
 
@@ -161,6 +168,8 @@ def ItemChartBuilder(cursor, date_dict, alias_dict):
                 sku_idx = sku_list.index(sku)
                 item_chart[sku_idx][2] += sales
                 item_chart[sku_idx][3] += qty
+                if sku == item_sku or item_sku == 'All':
+                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
 
             else :
                 row.append(sku)
@@ -169,6 +178,8 @@ def ItemChartBuilder(cursor, date_dict, alias_dict):
                 row.append(qty)
                 sku_list.append(sku)
                 item_chart.append(row)
+                if sku == item_sku or item_sku == 'All' :
+                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
 
     #Build chart value list
     values=[]
@@ -380,7 +391,8 @@ class SalesView(BaseView):
         {'paymentDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
-        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict)
+        item_sku = 'All'
+        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
 
         top_bar = []
         sales_total = 0
@@ -513,12 +525,12 @@ class ProductView(BaseView):
                 {'items.sku':{"$in":alias_list}}
                 ]})
 
-        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict)
+        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
 
         clean_chart = []
         for row in item_chart :
             if row[0] not in alias_list:
-                shipped_to_amz = shipped_to_amz- row[3]
+                continue
             else :
                 clean_chart.append(row)
         item_chart = clean_chart
@@ -589,10 +601,13 @@ def bar():
 
 # Create admin
 admin = flask_admin.Admin(
-    app,'Stockboy',
+    app, name='Stockboy',
     base_template='my_master.html',
     template_mode='bootstrap3',
-    url = '/dashboard'
+    url = '/dashboard',
+     category_icon_classes={
+        'Home': 'fa fa-line-chart'
+    }
     #index_view = DashboardView()
 
 )
