@@ -1,4 +1,4 @@
-{% extends 'admin/master.html' %}
+{% extends 'admin/base.html' %}
 {% block body %}
 {{ super() }}
 
@@ -189,4 +189,18 @@
   {% endblock body %}
 
   {% block tail %}
+  <script>
+    $(document).ready(function () {
+      $('#dtBasicExample').DataTable({
+       "paging": false, // false to disable pagination (or any other option)
+       "order":[[3, "desc"]],
+       "searching": false,
+       "language":{
+         "search":"",
+         "searchPlaceholder":"Search. . ."
+        }
+        });
+    $('.dataTables_length').addClass('bs-select');
+  });
+  </script>
   {% endblock tail %}

@@ -16,37 +16,36 @@
         </section>
         <section class="content-header">
 <div class="user-profile">
-  <div class="page-header">
-    <h2></h2>
-  </div>
 
   <div class="row float-left">
-    <div class="col-sm-12">
-      <div class="panel panel-primary">
-        <div class="panel-heading">Email Address</div>
-        <div class="panel-body">{{current_user.email}}</div>
+    <div class="col-md-8 col-md-offset-2">
+      <div class="card">
+        <div class="card-header">Email Address</div>
+        <div class="card-body">{{current_user.email}}</div>
       </div>
 
-      <div class="panel panel-info">
-        <div class="panel-heading">Account Actions</div>
-        <div class="panel-body"><a href="#">Change Email</a></div>
-        <div class="panel-body"><a href="#">Change Password</a></div>
+      <div class="card card-info">
+        <div class="card-header">Account Actions</div>
+        <div class="card-body"><a href="#">Change Email</a></div>
+        <div class="card-body"><a href="#">Change Password</a></div>
         {% if current_user.email_confirmed %}
-          <div class="panel-body">Email confirmed on: </div>
+          <div class="card-body">Email confirmed on: </div>
         {% else %}
-          <div class="panel-body">Email has not been confirmed!</div>
+          <div class="card-body">Email has not been confirmed!</div>
         {% if not current_user.email_confirmed %}
-          <div class="panel-body"><a href="#">Resend Email Confirmation</a></div>
+          <div class="card-body"><a href="#">Resend Email Confirmation</a></div>
         {% endif %}
       </div>
 
-      <div class="panel panel-info">
-        <div class="panel-heading">ShipStation API - <a href="https://ss6.shipstation.com/#/settings/api">(Get your API Key Here)</a></div>
+      <div class="card card-info">
+        <div class="card-header">ShipStation API - <a href="https://ss6.shipstation.com/#/settings/api">(Get your API Key Here)</a></div>
         <form method="POST">
 
-        <div class="panel-body">
-          <strong>API Key:</strong> {{apiform.key(size=35, value=current_user.ss_key ) }}
-          <strong>API Secret:</strong> {{apiform.secret(size=35, value = current_user.ss_secret) }}
+        <div class="card-body" id="ss-api-form">
+          <label for="apiform-key">API Key</label>
+        {{apiform.key(size=55, value=current_user.ss_key ) }}<br><br>
+          <label for="apiform-secret">API Secret</label>
+          {{apiform.secret(size=55, value = current_user.ss_secret) }}<br><br>
           {{apiform.submit}}
         </div>
 
@@ -54,10 +53,10 @@
 
         {% endif %}
       </div>
-          <div class="panel panel-info">
-            <div class="panel-heading"><h2>Inventory Uploads</h2></div>
-            <div class="panel-body">
-              <h3>Last Updated: {% if current_user.inventory_updated %}{{current_user.inventory_updated}}{% else %}Never{% endif %}</h3>
+          <div class="card card-info file">
+            <div class="card-header"><h2>Inventory Uploads</h2></div>
+            <div class="card-body">
+              <h2>Last Updated: {% if current_user.inventory_updated %}{{current_user.inventory_updated}}{% else %}Never{% endif %}</h2>
               <ol>
                 <li>Go to: <a href="https://ss6.shipstation.com/#/dashboard/reports">Shipstation Reports</a></li>
                 <li>Click <a href="https://ss6.shipstation.com/#/dashboard/report/InvStock">Inventory Status Report</a></li>
@@ -67,16 +66,15 @@
             <h4>Upload Here:</h4>
             <form method="POST" enctype="multipart/form-data">
               {{ inventoryform.hidden_tag() }}
-              {{inventoryform.file.label}}
               {{ inventoryform.file}}
               {{inventoryform.submit}}
             </form>
         </div>
       </div>
-      <div class="panel panel-info">
-        <div class="panel-heading"><h2>Alias Uploads</h2></div>
-        <div class="panel-body">
-          <h3>Last Updated: {% if current_user.alias_updated %}{{current_user.alias_updated}}{%else%}Never{% endif %}</h3>
+      <div class="card card-info file">
+        <div class="card-header"><h2>Alias Uploads</h2></div>
+        <div class="card-body">
+          <h2>Last Updated: {% if current_user.alias_updated %}{{current_user.alias_updated}}{%else%}Never{% endif %}</h2>
           <ol>
             <li>Go to: <a href="https://ss6.shipstation.com/#/dashboard/reports">Shipstation Reports</a></li>
             <li>Click <a href="https://ss6.shipstation.com/#/dashboard/report/ProductAliasExtract">Product Aliases Export</a></li>
@@ -86,7 +84,6 @@
         <h4>Upload Here:</h4>
         <form method="POST" enctype="multipart/form-data">
           {{ aliasform.hidden_tag() }}
-          {{aliasform.file.label}}
           {{ aliasform.file}}
           {{aliasform.submit}}
         </form>

@@ -8,7 +8,6 @@
 
 <section class="content">
 
-
   <div class="row">
     <!-- Left col -->
     <section class="container">
@@ -18,34 +17,32 @@
               <li class="active">Dashboard</li>
           </ol>
 
-        <div class="date-picker col-xs-3">
-
-          <form autocomplete="off"  id ='daterangeform' action="{{url_for('sales.index')}}" method="post">
-            <label for="daterange" class="col-2 col-form-label">Select Date Range</label>
-              <input class="form-control" type="text" name="daterange-top" >
-              <input type="submit" name="submit" id="date-submit" value="Go">
-          </form>
-
-          <script>
-          $(function() {
-            $('input[name="daterange-top"]').daterangepicker({
-              ranges: {
-              'Today': [moment(), moment()],
-              'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-              'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-              'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-              'This Month': [moment().startOf('month'), moment().endOf('month')],
-              'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-          },
-              "alwaysShowCalendars": true,
-              "autoApply": true,
-              "startDate": "{{startdate}}",
-              "endDate": "{{enddate}}"
-          }, function(start, end, label) {
-            $('#daterangeform submit').click()
-          });
-          });
-          </script>
+          <div class="date-picker col-xs-3">
+            <form id ='daterangeform' action="{{url_for('sales.index')}}" method="post">
+              <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
+                <input autocomplete="off" class="form-control" type="text" name="daterange" >
+                <input type="submit" name="submit" id="date-submit" value="Go">
+            </form>
+            <script>
+            $(function() {
+              $('input[name="daterange"]').daterangepicker({
+                ranges: {
+                'Today': [moment(), moment()],
+                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                'This Month': [moment().startOf('month'), moment().endOf('month')],
+                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+            },
+                "alwaysShowCalendars": true,
+                "autoApply": true,
+                "startDate": "{{startdate}}",
+                "endDate": "{{enddate}}"
+            }, function(start, end, label) {
+              $('#daterangeform submit').click()
+            });
+            });
+            </script>
         </div>
 
       <div class="col-lg-12">
@@ -160,4 +157,17 @@
   {% endblock body %}
 
   {% block tail %}
+  <script>
+    $(document).ready(function () {
+      $('#dtBasicExample').DataTable({
+       "paging": false, // false to disable pagination (or any other option)
+       "order":[[3, "desc"]],
+       "language":{
+         "search":"",
+         "searchPlaceholder":"Search. . ."
+        }
+        });
+    $('.dataTables_length').addClass('bs-select');
+  });
+  </script>
   {% endblock tail %}

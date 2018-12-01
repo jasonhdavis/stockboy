@@ -2317,9 +2317,6 @@ th {
 .table-bordered > thead > tr > td {
   border-bottom-width: 2px;
 }
-.table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: #f9f9f9;
-}
 .table-hover > tbody > tr:hover {
   background-color: #f5f5f5;
 }
@@ -4726,7 +4723,7 @@ fieldset[disabled] .navbar-inverse .btn-link:focus {
   line-height: 1.42857143;
   color: #337ab7;
   text-decoration: none;
-  background-color: #fff;
+
   border: 1px solid #ddd;
 }
 .pagination > li:first-child > a,

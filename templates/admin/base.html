@@ -17,6 +17,9 @@
 
   <!-- Bootstrap 3.3.6 -->
   <link href="{{url_for('static',filename='css/bootstrap.css')}}" rel="stylesheet"></link>
+  <!-- Datatables Styles -->
+  <link href="{{url_for('static',filename='css/datatables.min.css')}}" rel="stylesheet">
+
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
   <!-- Ionicons -->
@@ -29,8 +32,6 @@
   <link href="{{url_for('static',filename='plugins/daterangepicker/daterangepicker.css')}}" rel="stylesheet"></link>
   <!-- Flask-admin admin styles -->
   <link href="{{ admin_static.url(filename='admin/css/bootstrap3/admin.css', v='1.1.1') }}" rel="stylesheet">
-  <!-- Datatables Styles -->
-  <link href="{{url_for('static',filename='css/datatables.min.css')}}" rel="stylesheet">
 
   <style>
     div.daterangepicker .ranges ul {float: left !important;}
@@ -337,8 +338,7 @@
 <script src="{{url_for('static',filename='plugins/fastclick/fastclick.js')}}"></script>
 <!-- AdminLTE App -->
 <script src="{{url_for('static',filename='js/app.min.js')}}"></script>
-<!-- AdminLTE for demo purposes -->
-<script src="{{url_for('static',filename='js/demo.js')}}"></script>
+
 {% if admin_view.name=="Home" %}
   <script src="{{url_for('static',filename='js/pages/dashboard.js')}}"></script>
 {% endif %}
@@ -377,8 +377,8 @@
 
     var lineData = {
       labels : [
-        {% for item in labels %}
-          "{{ item }}",
+        {% for label in labels %}
+          '{{ label }}',
         {% endfor %}
       ],
       datasets : [{
@@ -389,8 +389,8 @@
         lineTension: 0.3,
 
         data : [
-    {% for item in values %}
-            {{ item }},
+    {% for value in values %}
+            {{ value }},
           {% endfor %}]
         }
 ]
@@ -422,7 +422,7 @@
       tooltips: {
            callbacks: {
                label: function(tooltipItems, data) {
-                   return '$' +tooltipItems.yLabel;
+                   return '$' +tooltipItems.yLabel.toFixed(2);
                }
            }
        }
@@ -432,15 +432,37 @@
     });
   </script>
   <script>
-    $(document).ready(function () {
-      $('#dtBasicExample').DataTable({
-       "paging": false, // false to disable pagination (or any other option)
-       "order":[[3, "desc"]],
-       "searching": false
-        });
-    $('.dataTables_length').addClass('bs-select');
-  });
 
+  function downloadCSV(csv, filename) {
+      var csvFile;
+      var downloadLink;
+      // CSV file
+      csvFile = new Blob([csv], {type: "text/csv"});
+      // Download link
+      downloadLink = document.createElement("a");
+      // File name
+      downloadLink.download = filename;
+      // Create a link to the file
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      // Hide download link
+      downloadLink.style.display = "none";
+      // Add the link to DOM
+      document.body.appendChild(downloadLink);
+      // Click download link
+      downloadLink.click();
+  }
+        function exportTableToCSV(filename) {
+            var csv = [];
+            var rows = document.querySelectorAll("table tr");
+            for (var i = 0; i < rows.length; i++) {
+                var row = [], cols = rows[i].querySelectorAll("td, th");
+                for (var j = 0; j < cols.length; j++)
+                    row.push('"'+cols[j].innerText+'"');
+                csv.push(row.join(","));
+            }
+            // Download CSV file
+            downloadCSV(csv.join("\n"), filename);
+        }
   </script>
 {% endblock tail_js%}
 

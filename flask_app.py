@@ -88,10 +88,10 @@ def DateFormHanlder(formvalue):
         start = datetime.strptime(daterange[0],'%m/%d/%Y')
         end = datetime.strptime(daterange[1], '%m/%d/%Y')
         #Because time ends at midnight, add one extra day, which represents midnight
-        end = end+timedelta(days=1)
+        end = end
     else :
         start = today - timedelta(days=30)
-        end = today + timedelta(days=1)
+        end = today
     return start, end
 
 def AliasDictBuilder(cursor):
