@@ -33,10 +33,6 @@
   <!-- Flask-admin admin styles -->
   <link href="{{ admin_static.url(filename='admin/css/bootstrap3/admin.css', v='1.1.1') }}" rel="stylesheet">
 
-  <style>
-    div.daterangepicker .ranges ul {float: left !important;}
-    div.daterangepicker {width: 645px !important;}
-  </style>
 
   {% if admin_view.extra_css %}
   {% for css_url in admin_view.extra_css %}
@@ -343,127 +339,6 @@
   <script src="{{url_for('static',filename='js/pages/dashboard.js')}}"></script>
 {% endif %}
 
-  <script>
-
-
-    Chart.defaults.global.animationSteps = 25;
-    Chart.defaults.global.tooltips.YPadding = 50;
-    Chart.defaults.global.tooltips.titleFontSize = 20;
-    Chart.defaults.global.tooltips.bodyFontSize = 20;
-    Chart.defaults.global.tooltips.displayColors = false;
-    Chart.defaults.global.tooltips.CornerRadius = 2;
-    Chart.defaults.global.tooltips.TitleFontStyle = "normal";
-    Chart.defaults.global.tooltips.FillColor = "rgba(0,0,0,0.8)";
-    Chart.defaults.global.animationEasing = "linear";
-    Chart.defaults.global.responsive = true;
-
-
-
-    // get bar chart canvas
-    var mychart = document.getElementById("chart").getContext("2d");
-    steps = 10
-    max = {{ max }}
-
-            // bar chart data
-
-    var gradientFill = mychart.createLinearGradient(0,500,0,300);
-    gradientFill.addColorStop(0, "rgba(84, 184, 143, 0.3)");
-    //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-    gradientFill.addColorStop(1, "rgba(84, 184, 143, 0.6)");
-    // draw bar chart
-    //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-    //gradientFill.addColorStop(0, "rgba(84,184,143,0.6)");
-    //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-
-    var lineData = {
-      labels : [
-        {% for label in labels %}
-          '{{ label }}',
-        {% endfor %}
-      ],
-      datasets : [{
-        backgroundColor: gradientFill,
-        pointBackgroundColor: "rgba(84, 184, 143, 0.8)",
-        pointRadius:3,
-        pointPadding: 3,
-        lineTension: 0.3,
-
-        data : [
-    {% for value in values %}
-            {{ value }},
-          {% endfor %}]
-        }
-]
-    }
-
-    var LineChartDemo = new Chart(mychart, {
-      type:'line',
-      data:lineData,
-      options: {
-      pointHitRadius: 100,
-      scaleShowVerticalLines: true,
-      scaleShowGridLines : true,
-      barShowStroke : true,
-      scaleShowLabels: true,
-      bezierCurve: false,
-      responsive: true,
-      legend:{
-        display: false,
-      },
-      scales: {
-        yAxes:[{
-          ticks:{
-
-            beginAtZero: true
-          }
-        }]
-      },
-
-      tooltips: {
-           callbacks: {
-               label: function(tooltipItems, data) {
-                   return '$' +tooltipItems.yLabel.toFixed(2);
-               }
-           }
-       }
-
-
-    }
-    });
-  </script>
-  <script>
-
-  function downloadCSV(csv, filename) {
-      var csvFile;
-      var downloadLink;
-      // CSV file
-      csvFile = new Blob([csv], {type: "text/csv"});
-      // Download link
-      downloadLink = document.createElement("a");
-      // File name
-      downloadLink.download = filename;
-      // Create a link to the file
-      downloadLink.href = window.URL.createObjectURL(csvFile);
-      // Hide download link
-      downloadLink.style.display = "none";
-      // Add the link to DOM
-      document.body.appendChild(downloadLink);
-      // Click download link
-      downloadLink.click();
-  }
-        function exportTableToCSV(filename) {
-            var csv = [];
-            var rows = document.querySelectorAll("table tr");
-            for (var i = 0; i < rows.length; i++) {
-                var row = [], cols = rows[i].querySelectorAll("td, th");
-                for (var j = 0; j < cols.length; j++)
-                    row.push('"'+cols[j].innerText+'"');
-                csv.push(row.join(","));
-            }
-            // Download CSV file
-            downloadCSV(csv.join("\n"), filename);
-        }
-  </script>
 {% endblock tail_js%}
 
 {% block tail %}

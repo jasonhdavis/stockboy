@@ -189,6 +189,94 @@
   {% endblock body %}
 
   {% block tail %}
+
+    <script>
+      Chart.defaults.global.animationSteps = 25;
+      Chart.defaults.global.tooltips.YPadding = 50;
+      Chart.defaults.global.tooltips.titleFontSize = 20;
+      Chart.defaults.global.tooltips.bodyFontSize = 20;
+      Chart.defaults.global.tooltips.displayColors = false;
+      Chart.defaults.global.tooltips.CornerRadius = 2;
+      Chart.defaults.global.tooltips.TitleFontStyle = "normal";
+      Chart.defaults.global.tooltips.FillColor = "rgba(0,0,0,0.8)";
+      Chart.defaults.global.animationEasing = "linear";
+      Chart.defaults.global.responsive = true;
+
+      // line chart canvas
+      var mychart = document.getElementById("chart").getContext("2d");
+      steps = 10
+      max = {{ max }}
+
+              // bar chart data
+
+      var gradientFill = mychart.createLinearGradient(0,500,0,300);
+      gradientFill.addColorStop(0, "rgba(84, 184, 143, 0.3)");
+      gradientFill.addColorStop(1, "rgba(84, 184, 143, 0.6)");
+      // draw bar chart
+      //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
+      //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
+      //gradientFill.addColorStop(0, "rgba(84,184,143,0.6)");
+      //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
+
+      var lineData = {
+        labels : [
+          {% for label in labels %}
+            '{{ label }}',
+          {% endfor %}
+        ],
+        datasets : [{
+          backgroundColor: gradientFill,
+          pointBackgroundColor: "rgba(84, 184, 143, 0.8)",
+          pointRadius:3,
+          pointPadding: 3,
+          lineTension: 0.3,
+
+          data : [
+      {% for value in values %}
+              {{ value }},
+            {% endfor %}]
+          }
+  ]
+      }
+      var LineChartDemo = new Chart(mychart, {
+        type:'line',
+        data:lineData,
+        options: {
+        pointHitRadius: 100,
+        scaleShowVerticalLines: true,
+        scaleShowGridLines : true,
+        barShowStroke : true,
+        scaleShowLabels: true,
+        bezierCurve: false,
+        responsive: true,
+        legend:{
+          display: false,
+        },
+        scales: {
+          yAxes:[{
+            ticks:{
+
+              beginAtZero: true
+            }
+          }]
+        },
+        tooltips: {
+             callbacks: {
+                 label: function(tooltipItems, data) {
+                     return '$' +tooltipItems.yLabel.toFixed(2);
+                 }
+             }
+         }
+
+      }
+      });
+
+
+
+
+
+    </script>
+  
   <script>
     $(document).ready(function () {
       $('#dtBasicExample').DataTable({

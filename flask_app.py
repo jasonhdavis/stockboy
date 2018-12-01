@@ -102,31 +102,31 @@ def AliasDictBuilder(cursor):
         alias_dict[alias['Alias']] = alias['Product SKU']
     return alias_dict
 
+def DiscountHandler():
 
-            #def DiscountHandler():
-                #if "Discount" in name :
-                    #continue
+    #if "Discount" in name :
+        #continue
 
-                ## Discount Handler ##
+    ## Discount Handler ##
 
-                #discount = 0
-                #discount_percent = False
+    #discount = 0
+    #discount_percent = False
 
-                #for item in l['items']:
-                #    iter_sku = item['sku']
-                #    if 'Discount' in item['name'] :
-                #        discount = item['unitPrice']
+    #for item in l['items']:
+    #    iter_sku = item['sku']
+    #    if 'Discount' in item['name'] :
+    #        discount = item['unitPrice']
 
-                #    if iter_sku not in alias_list :
-                #        continue
-                #if discount != 0 :
-                #    if discount < 0:
-                #        discount = discount * -1
-                #    gross = discount+order_total
-                #    discount_percent = discount/gross
+    #    if iter_sku not in alias_list :
+    #        continue
+    #if discount != 0 :
+    #    if discount < 0:
+    #        discount = discount * -1
+    #    gross = discount+order_total
+    #    discount_percent = discount/gross
 
-                #    item_discount = sales_total*discount_percent`
-
+    #    item_discount = sales_total*discount_percent`
+    pass
 
 def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     shipped_to_amz = 0
@@ -479,7 +479,67 @@ class ProductView(BaseView):
     #def is_visible(self):
         #return False
     def ProductIndex(self) :
-        return 'Product View Index'
+        formvalue = False
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+
+        start, end = DateFormHanlder(formvalue)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+        date_dict, labels = DateDictBuilder(start, end)
+
+        email = current_user.email
+        ### Queries ###
+
+        #Build Alias Dictionary - all owner alias values
+        alias_search = mongo.db.alias.find({'Owner':email})
+        alias_dict = AliasDictBuilder(alias_search)
+
+        ## Find Owner Orders in Date Range
+        range_search = mongo.db.orders.find({'$and':[
+        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'owner':email}]})
+
+        item_sku = 'All'
+        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
+
+        top_bar = []
+        sales_total = 0
+        qty_total = 0
+        # Build top bar values
+
+        ## We do not want values per day, we want value per item, graphed
+        sales_values = []
+        qty_values = []
+        labels = []
+        item_chart = sorted(item_chart, key=lambda x: x[2], reverse=True)
+
+        for row in item_chart :
+            sales_total += row[2]
+            if row[2] < 0:
+                continue
+            labels.append(row[1])
+
+            qty_total += row[3]
+            sales_values.append(row[2])
+            qty_values.append(row[3])
+
+        range_search.rewind()
+        num_orders = range_search.count()
+        avg_order_size = float(qty_total/num_orders)
+
+        #### Placeholder for 2 chart handling
+        values = sales_values
+        ####
+
+        top_bar.append(sales_total)
+        top_bar.append(qty_total)
+        top_bar.append(num_orders)
+        top_bar.append(float(qty_total)/float(num_orders))
+        max_values = max(sales_values)
+        return self.render('admin/product_index.html',  top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
+
 
     @expose('/<string:item_sku>',methods=('GET', 'POST'))
     def ProductChart(self, item_sku):
