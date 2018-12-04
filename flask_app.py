@@ -5,7 +5,6 @@ import os
 import time
 
 from datetime import datetime, timedelta
-from decimal import *
 import locale
 locale.setlocale(locale.LC_ALL, '')
 from flask import Flask, url_for, redirect, render_template, request, abort, flash
@@ -13,10 +12,12 @@ from flask_mongoengine import MongoEngine
 from flask_security import Security, \
     UserMixin, RoleMixin, login_required, current_user, datastore, MongoEngineUserDatastore
 from flask_security.utils import encrypt_password
+import hashlib
+import base64
 import flask_admin
 from flask_admin.contrib import sqla
 from flask_admin import helpers as admin_helpers
-from flask_admin import BaseView, expose
+from flask_admin import BaseView, expose, AdminIndexView
 from flask_bootstrap import Bootstrap
 from flask_datepicker import datepicker
 from flask_admin.contrib.pymongo import ModelView
@@ -318,6 +319,7 @@ class ProfileView(BaseView):
                     if sku == "":
                         #Shipstation merges name column vertically
                         # Leaving  blank sku cells below
+                        r = r+1
                         continue
 
                     row = {}
@@ -331,7 +333,7 @@ class ProfileView(BaseView):
                     row['Reorder Threshold'] = ws.cell_value(r,9)
                     row['Owner'] = current_user.email
                     mongo.db.inventory.update({'SKU':str(sku)},row,upsert=True)
-                    r+=1
+                    r = r+1
                     update_count+=1
                 flash('Imported '+ str(update_count) + ' Inventory Stock Values')
                 mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'inventory_updated':nice_now}})
@@ -428,10 +430,10 @@ class SalesView(BaseView):
         top_bar.append(avg_burn)
         max_values = max(values)
 
-        return self.render('admin/sales_index.html',top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
+        return self.render('admin/sales_index.html',top=top_bar,orders=item_chart, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
 
 class InventoryView(BaseView):
-    @expose('/',methods=('GET', 'POST'))
+    @expose('/',methods=(['GET']))
     def InventoryCharts(self):
 
         i = 0
@@ -447,7 +449,35 @@ class InventoryView(BaseView):
         qty_total = 0
         total_value = 0
         sku_count = 0
+
+        formvalue = False
+        start, end = DateFormHanlder(formvalue)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+        date_dict, labels = DateDictBuilder(start, end)
+
+        email = current_user.email
+
+        #Build Alias Dictionary - all owner alias values
+        alias_search = mongo.db.alias.find({'Owner':email})
+        alias_dict = AliasDictBuilder(alias_search)
+
+        ## Find Owner Orders in Date Range
+        range_search = mongo.db.orders.find({'$and':[
+        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'owner':email}]})
+
+        item_sku = 'All'
+        item_sales_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
+        sku_sales_index = []
+        total_qty_sold = 0
+        for item in item_sales_chart :
+            sku_sales_index.append(item[0])
+            total_qty_sold += item[3]
+
         inventory = mongo.db.inventory.find()
+
         for item in inventory :
             row = []
             try:
@@ -461,15 +491,37 @@ class InventoryView(BaseView):
                     total_value += 1.25*item['Stock']
                 else :
                     total_value += .75*item['Stock']
+
             sku_count+=1
-            row.append(item['SKU'])
+            sku = item['SKU']
+            row.append(sku)
             row.append(item['Product Name'])
             row.append(int(item['Stock']))
+
+
+            if sku in sku_sales_index :
+                sales_idx = sku_sales_index.index(sku)
+                qty_sold = item_sales_chart[sales_idx][3]
+            else :
+                qty_sold = 0
+
+            row.append(qty_sold)
+            burn = float(qty_sold)/int(delta_range)
+
+            if burn == 0:
+                inventory_days = 9999999
+            else :
+                inventory_days = int(item['Stock']) / burn
+
+
+            row.append(inventory_days)
             items_chart.append(row)
 
         top_bar.append(qty_total)
         top_bar.append(round(total_value,2))
         top_bar.append(sku_count)
+        sell_through_rate = float(total_qty_sold) / float(total_qty_sold+qty_total)
+        top_bar.append(sell_through_rate*100)
 
 
         return self.render('admin/inventory_index.html', items_chart=items_chart, top=top_bar)
@@ -626,8 +678,118 @@ class ProductView(BaseView):
 
         return self.render('admin/product_sku.html', product_details=product_details, alias_list=alias_list, top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
 
+class CustomerView(BaseView) :
+    @expose('/',methods=('GET', 'POST'))
+    def CustomerIndex(self) :
+        formvalue = False
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
 
-        #return self.render('sales_index.html')
+        ## Date range builder
+        start, end = DateFormHanlder(formvalue)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+
+        #Query - get orders for current users in date range
+        email = current_user.email
+        range_search = mongo.db.orders.find({'$and':[
+        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'owner':email}]})
+
+        num_orders = range_search.count()
+        order_value_list = []
+        # Returns dictionary of orders, centered around customer details
+        customer_dict = {}
+        for order in range_search :
+            customer_id = order['customerId']
+            if customer_id is None :
+                # Amazon orders do not have a customer ID
+                # [DONE] Create identifyable hash of the Street Address + Zip code
+                # Create a customer ID with 'AMZ' prefix
+                # Update MongoDB with both values
+                address = order['shipTo']['street1']+'::'+order['shipTo']['postalCode']
+                customer_id = base64.b64encode(hashlib.md5(address).digest())
+
+            if customer_id not in customer_dict :
+                customer_dict.update({customer_id:{
+                'num_orders': 0,
+                'customer_value': 0
+                }})
+
+            customer_dict[customer_id]['name'] = order['shipTo']['name']
+            customer_dict[customer_id]['city'] = order['shipTo']['city']
+            customer_dict[customer_id]['state'] = order['shipTo']['state']
+            customer_dict[customer_id]['email'] = order['customerEmail']
+            customer_dict[customer_id]['num_orders'] +=1
+            customer_dict[customer_id]['customer_value'] += order['orderTotal']
+            order_value_list.append(order['orderTotal'])
+
+        unique_customers = len(customer_dict)
+        avg_order_value = sum(order_value_list) / len(order_value_list)
+        repeat_rate = float(num_orders)/float(unique_customers)
+        top_bar=[]
+        top_bar.append(num_orders)
+        top_bar.append(unique_customers)
+        top_bar.append(avg_order_value)
+        top_bar.append(repeat_rate)
+
+
+        return self.render('admin/customer_index.html', customer_dict=customer_dict, top=top_bar, daterange=formvalue, startdate= start_date, enddate=end_date)
+
+    @expose('/<int:customer_id>',methods=('GET', 'POST'))
+    def CustomerDetails(self, customer_id):
+
+        # Query orders for customer ID
+        # Build sales & item chart based on query
+
+        email = current_user.email
+        alias_search = mongo.db.alias.find({'Owner':email})
+        alias_dict = AliasDictBuilder(alias_search)
+
+        customer = mongo.db.customers.find_one({'customerId':customer_id})
+        customer_since = StripTimezone(customer['createDate'])
+        customer_since = datetime.strptime(customer_since,'%Y-%m-%dT%H:%M:%S')
+
+        customer_search = mongo.db.orders.find({'customerId':customer_id})
+        num_orders = customer_search.count()
+        item_sku= 'All'
+
+        start = customer_since
+        end = today
+        delta_range = (end - start).days
+
+        date_dict, labels = DateDictBuilder(start, end)
+
+        item_chart, values, shipped_to_amz = ItemChartBuilder(customer_search, date_dict, alias_dict, item_sku)
+        top_bar = []
+
+        customer_value = 0
+
+        for row in item_chart :
+            customer_value += row[2]
+
+        # Customer Value
+
+        # Number of Orders
+        # Customer Since
+        # Frequency
+        order_frequency = delta_range/num_orders
+
+        top_bar.append(customer_value)
+        top_bar.append(num_orders)
+        customer_since_date_str = str(customer_since.month) +"/"+ str(customer_since.day) +"/"+ str(customer_since.year)
+        top_bar.append(customer_since_date_str)
+        top_bar.append(order_frequency)
+
+        return self.render('admin/customer_details.html', top=top_bar, orders=item_chart, labels=labels, values=values)
+
+class ShipmentView(BaseView):
+    @expose('/',methods=('GET', 'POST'))
+    #def is_visible(self):
+        #return False
+    def ShipmentIndex(self) :
+        return "Shipment details go here"
 
 # Flask views
 @app.route('/')
@@ -658,16 +820,19 @@ def bar():
 
 
 
-
 # Create admin
 admin = flask_admin.Admin(
     app, name='Stockboy',
     base_template='my_master.html',
     template_mode='bootstrap3',
     url = '/dashboard',
-     category_icon_classes={
-        'Home': 'fa fa-line-chart'
-    }
+    index_view=AdminIndexView(
+    name='Dashboard',
+    template='admin/index.html',
+    menu_icon_type='fa',
+    url = '/dashboard',
+    menu_icon_value='fa-tachometer'
+    )
     #index_view = DashboardView()
 
 )
@@ -675,13 +840,15 @@ admin = flask_admin.Admin(
 # Add model views
 #admin.add_view(MyModelView(MongoRole, 'Roles', menu_icon_type='fa', menu_icon_value='fa-server', name="Roles"))
 #admin.add_view(UserView(MongoUser, 'Users', menu_icon_type='fa', menu_icon_value='fa-users', name="Users"))
-admin.add_view(SalesView(name="Sales", endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-line-chart'))
+admin.add_view(SalesView(name="Sales", endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-area-chart'))
 admin.add_view(InventoryView(name="Inventory", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive'))
-admin.add_view(ProductView(name='Products', endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
-
+admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
+admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
+admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
 #admin.add_view(AmazonView(name="Amazon", endpoint='amazon', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(ProfileView(name='Settings & Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
+
 
 ## Sub Items - Not visible in menu
 #admin.add_view(UserView(mongo.db['users'],mongo.db, endpoint='Mongo'))

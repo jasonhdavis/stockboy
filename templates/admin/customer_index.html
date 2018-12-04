@@ -6,18 +6,19 @@
 
 <!-- Content Header (Page header) -->
 
-
-<section class="content" id="inventory-index">
+<section class="content" id="customer-index">
   <div class="row">
     <!-- Left col -->
     <section class="container">
         <section class="content-header">
-                <h1>Inventory</h1>
-                  <small>Current Stock Levels, Sell-Through Rate, Inventory Value & Days of Inventory</small>
+                <h1>Customer Loyalty</h1>
+                  <small>All customers in date range. Total value in time frame and number of orders. Value calculated including shipping charges minus discounts (if discounts display as negative numbers in shipstation)</small>
           <ol class="breadcrumb">
-              <li><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
-              <li class="active">Inventory</li>
+              <li><a href="./"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+              <li class="active">Customers</li>
           </ol>
+
+        
         </section>
         <section class="content">
           <!-- Small boxes (Stat box) -->
@@ -27,7 +28,7 @@
               <div class="small-box bg-success">
                 <div class="inner">
                   <h3>{{"{:,}".format(top[0])}}</h3>
-                  <p>Total Inventory</p>
+                  <p>Number of Orders</p>
               </div>
               <div class="icon">
                   <i class="ion ion-pricetag"></i>
@@ -40,9 +41,9 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{"{:,}".format(top[1])}}</h3>
+              <h3>{{"{:,}".format(top[1])}}</h3>
 
-              <p>Inventory Value</p>
+              <p>Unique Customers</p>
           </div>
           <div class="icon">
               <i class="ion ion-stats-bars"></i>
@@ -55,9 +56,9 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{"{:,}".format(top[2])}}</h3>
+              <h3>${{"{:,.2f}".format(top[2])}}</h3>
 
-              <p>SKUs</p>
+              <p>Avg Order Value</p>
           </div>
           <div class="icon">
               <i class="ion ion-filing"></i>
@@ -70,9 +71,9 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{"{:,.2f}".format(top[3])}}%</h3>
+              <h3>{{"{:,.2f}".format(top[3])}}</h3>
 
-              <p>Sell Through</p>
+              <p>Repeat Rate</p>
           </div>
           <div class="icon">
               <i class="ion ion-bonfire"></i>
@@ -88,23 +89,25 @@
           <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
             <thead>
                 <tr>
-                    <th class="th-sm">Sku</th>
+                    <th class="th-sm">Customer ID</th>
                     <th class="th-sm">Name</th>
-                    <th class="th-sm">Stock</th>
-                    <th class="th-sm">Qty Sold</th>
-                    <th class="th-sm">Inventory Days</th>
-
+                    <th class="th-sm">Email</th>
+                    <th class="th-sm">City</th>
+                    <th class="th-sm">State</th>
+                    <th class="th-sm"># Orders</th>
+                    <th class="th-sm">Customer Value</th>
                 </tr>
             </thead>
             <tbody >
-              {% for item in items_chart %}
+              {% for customer_id in customer_dict %}
                 <tr>
-                    <td>{{item[0]}}</td>
-                    <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
-                    <td width="20%">{{item[2]}}</td>
-                    <td width="20%">{{item[3]}}</td>
-                    <td width="20%">{{"{:,.1f}".format(item[4])}}</td>
-
+                    <td><a href="{{customer_id}}">{{customer_id}}</a></td>
+                    <td>{{ customer_dict[customer_id]['name'] }}</td>
+                    <td>{{ customer_dict[customer_id]['email'] }}</td>
+                    <td>{{ customer_dict[customer_id]['city'] }}</td>
+                    <td>{{ customer_dict[customer_id]['state'] }}</td>
+                    <td>{{ customer_dict[customer_id]['num_orders'] }}</td>
+                    <td>{{ customer_dict[customer_id]['customer_value'] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -160,8 +163,8 @@
   <script>
     $(document).ready(function () {
       $('#dtBasicExample').DataTable({
-       "paging": true, // false to disable pagination (or any other option)
-       "order":[[4, "asc"]],
+       "paging": false, // false to disable pagination (or any other option)
+       "order":[[6, "desc"]],
        "language":{
          "search":"",
          "searchPlaceholder":"Search. . ."

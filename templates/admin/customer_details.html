@@ -17,38 +17,12 @@
               <li class="active">Dashboard</li>
           </ol>
 
-          <div class="date-picker col-xs-3">
-            <form id ='daterangeform' action="{{url_for('sales.index')}}" method="post">
-              <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-                <input autocomplete="off" class="form-control" type="text" name="daterange" >
-                <input type="submit" name="submit" id="date-submit" value="Go">
-            </form>
-            <script>
-            $(function() {
-              $('input[name="daterange"]').daterangepicker({
-                ranges: {
-                'Today': [moment(), moment()],
-                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-            },
-                "alwaysShowCalendars": true,
-                "autoApply": true,
-                "startDate": "{{startdate}}",
-                "endDate": "{{enddate}}"
-            }, function(start, end, label) {
-              $('#daterangeform submit').click()
-            });
-            });
-            </script>
-        </div>
+
 
       <div class="col-lg-12">
 
-        <h1>Sales</h1>
-          <small>Total order value (including shipping) combined by product alias</small>
+        <h1>Customer Value</h1>
+          <small>Lifetime value of customer since first order</small>
         </div>
         </section>
         <section class="content">
@@ -59,7 +33,7 @@
               <div class="small-box bg-success">
                 <div class="inner">
                   <h3>${{ "{:,.2f}".format(top[0]) }}</h3>
-                  <p>Sales</p>
+                  <p>Customer Value</p>
               </div>
               <div class="icon">
                   <i class="ion ion-pricetag"></i>
@@ -74,7 +48,7 @@
             <div class="inner">
               <h3>{{"{:,}".format(top[1])}}</h3>
 
-              <p>Qty Sold</p>
+              <p>Orders</p>
           </div>
           <div class="icon">
               <i class="ion ion-stats-bars"></i>
@@ -87,9 +61,9 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{"{:,}".format(top[2])}}</h3>
+              <h3>{{top[2]}}</h3>
 
-              <p>Transfer to Amazon</p>
+              <p>Customer Since</p>
           </div>
           <div class="icon">
               <i class="ion ion-filing"></i>
@@ -104,7 +78,7 @@
             <div class="inner">
               <h3>{{"{:,}".format(top[3])}}</h3>
 
-              <p>Burn Rate</p>
+              <p>Order Frequency (Days)</p>
           </div>
           <div class="icon">
               <i class="ion ion-bonfire"></i>
@@ -126,7 +100,6 @@
                     <th class="th-sm">Name</th>
                     <th class="th-sm">Sales</th>
                     <th class="th-sm">QTY</th>
-                    <th class="th-sm">Daily Burn Rate</th>
                 </tr>
             </thead>
             <tbody >
@@ -136,7 +109,6 @@
                     <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
                     <td width="20%">{{item[2]}}</td>
                     <td width="10%">{{item[3]}}</td>
-                    <td width="10%">{{item[4]}}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -172,7 +144,7 @@
 
       // line chart canvas
       var mychart = document.getElementById("chart").getContext("2d");
-
+      steps = 10
 
       var gradientFill = mychart.createLinearGradient(0,500,0,300);
       gradientFill.addColorStop(0, "rgba(84, 184, 143, 0.3)");
@@ -235,10 +207,6 @@
 
       }
       });
-
-
-
-
 
     </script>
     <script>

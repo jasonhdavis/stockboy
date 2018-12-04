@@ -271,6 +271,8 @@ a:focus {
 .main-header .sidebar-toggle:active {
   background: transparent;
 }
+
+
 .main-header .sidebar-toggle .icon-bar {
   display: none;
 }
@@ -695,9 +697,7 @@ a:focus {
   white-space: nowrap;
   overflow: hidden;
 }
-.sidebar-menu:hover {
-  overflow: visible;
-}
+
 .sidebar-form,
 .sidebar-menu > li.header {
   overflow: hidden;
@@ -5440,6 +5440,13 @@ nav.navbar.navbar-static-top {
 	background-color: #54B88F !important;
 }
 
+.navbar-static-top a.sidebar-toggle:hover {
+	background-color: #fff !important;
+	text-decoration: none;
+	padding-top: 16px;
+	padding-bottom: 16px;
+}
+
 header a.logo, aside.main-sidebar {
 	background-color: #303030 !important;
 }
@@ -5449,18 +5456,23 @@ header a.logo, aside.main-sidebar {
 }
 
 .main-sidebar li {
-	font-size: 1.2rem;
+	font-size: 1.3rem;
 
+}
+
+.main-sidebar li a I {
+	margin-right: .6em;
 }
 
 .main-sidebar li.active a, .main-sidebar li a:hover {
 	background-color: #222 !important;
 	color: #00bc8c !important;
 	border-color: #00bc8c !important;
+	margin-top: 1px;
 }
 
+
 .content-header {
-	display: inline-block;
 	padding-bottom: 1em;
 	margin-bottom: 1em;
 	width: 100%;
