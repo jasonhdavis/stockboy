@@ -95,6 +95,23 @@
           {{aliasform.submit}}
         </form>
     </div>
+    <div class="card card-info file">
+      <div class="card-header"><h2>FBA Upload</h2></div>
+      <div class="card-body">
+        <h2>Last Updated: {% if current_user.fba_updated %}{{current_user.fba_updated}}{%else%}Never{% endif %}</h2>
+        <ol>
+          <li>[FIX] Go to: <a href="https://ss6.shipstation.com/#/dashboard/reports">Shipstation Reports</a></li>
+          <li>[FIX] Click <a href="https://ss6.shipstation.com/#/dashboard/report/ProductAliasExtract">Product Aliases Export</a></li>
+          <li>Show Product Aliases for : <strong>All Product SKUs</strong></li>
+          <li>Click Export to Excel</li>
+        </ol>
+      <h4>Upload Here:</h4>
+      <form method="POST" enctype="multipart/form-data">
+        {{ fbaform.hidden_tag() }}
+        {{ fbaform.file}}
+        {{fbaform.submit}}
+      </form>
+  </div>
   </div>
 
   </div>

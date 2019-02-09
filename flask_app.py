@@ -3,7 +3,7 @@
 
 import os
 import time
-
+import csv
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
@@ -101,6 +101,17 @@ def AliasDictBuilder(cursor):
     alias_dict = {}
     for alias in cursor :
         alias_dict[alias['Alias']] = alias['Product SKU']
+
+#    cursor.rewind()
+
+#    alias_dict['reverse'] = {}
+#    reverse = alias_dict['reverse']
+#    for alias in cursor :
+#        product_sku = alias['Product SKU']
+#        alias = alias['Alias']
+#        if alias in reverse :
+#        alias_dict['reverse'][alias['Alias']]
+
     return alias_dict
 
 def DiscountHandler():
@@ -129,15 +140,15 @@ def DiscountHandler():
     #    item_discount = sales_total*discount_percent`
     pass
 
-def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
+def ItemDictBuilder(cursor, date_dict, alias_dict, item_sku):
     shipped_to_amz = 0
-    item_chart = []
+    item_dict = {}
     sku_list = []
     for order in cursor :
         # Sum Order Totals
         payment_date = order['paymentDate']
 
-        # Count Amz Quantity
+        # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
         if ship_to.find('Amazon') >-1 or ship_to.find('Golden State FC') >-1:
             for item in order['items'] :
@@ -164,6 +175,79 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
             name = item['name']
             qty = item['quantity']
             sales = item['unitPrice']*qty
+
+            store_id = order['advancedOptions']['storeId']
+
+            if sku in item_dict :
+                item_dict[sku]['sales'] += sales
+                item_dict[sku]['qty'] += qty
+                item_dict[sku]['stores'] = {}
+                if store_id in item_dict :
+                    item_dict[sku]['stores'][store_id] += qty
+                else :
+                    item_dict[sku]['stores'][store_id]={}
+                    item_dict[sku]['stores'][store_id] = qty
+
+                if sku == item_sku or item_sku == 'All':
+                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
+
+            else :
+                item_dict[sku] = {}
+                item_dict[sku]['name'] = name
+                item_dict[sku]['sales'] = sales
+                item_dict[sku]['qty'] = qty
+                item_dict[sku]['stores'] = {store_id:qty}
+
+                if sku == item_sku or item_sku == 'All' :
+                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
+
+    #Build chart value list
+    values=[]
+
+    for year in date_dict.values():
+        for month in year.values():
+          for day in month.values() :
+              values.append(day)
+
+    return item_dict, values, shipped_to_amz
+
+def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
+    shipped_to_amz = 0
+    item_chart = []
+    sku_list = []
+    for order in cursor :
+        # Sum Order Totals
+        payment_date = order['paymentDate']
+
+        # Count ship to Amz Quantity to avoid
+        ship_to = order['shipTo']['name']
+        if ship_to.find('Amazon') >-1 or ship_to.find('Golden State FC') >-1:
+            for item in order['items'] :
+                sku = item['sku']
+                if sku == item_sku or item_sku == 'All':
+                    shipped_to_amz += item['quantity']
+                # Do nothing with these duplicate quantities
+            continue
+
+        # Count item qty & sales
+        # Join on product Alias
+        for item in order['items']:
+            row = []
+            sku = item['sku']
+
+            if sku in alias_dict :
+                sku = alias_dict[sku]
+
+            ## To be implemented ##
+
+            if sku == "":
+                continue
+
+            name = item['name']
+            qty = item['quantity']
+            sales = item['unitPrice']*qty
+
+            store_id = order['advancedOptions']['storeId']
 
             if sku in sku_list :
                 sku_idx = sku_list.index(sku)
@@ -192,6 +276,28 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
 
     return item_chart, values, shipped_to_amz
 
+def FBADictBuilder() :
+    cursor = mongo.db.fba.find({'Owner':current_user.email})
+    fba_dict = {}
+    for item in cursor :
+        asin = item['asin']
+
+        if asin not in fba_dict :
+            fba_dict[asin] = {}
+
+            fba_dict[asin]['afn-fulfillable-quantity'] = 0
+            fba_dict[asin]['afn-warehouse-quantity'] = 0
+            fba_dict[asin]['afn-total-quantity'] = 0
+            fba_dict[asin]['afn-inbound-shipped-quantity'] = 0
+            fba_dict[asin]['afn-reserved-quantity'] = 0
+
+        fba_dict[asin]['afn-fulfillable-quantity'] += int(item['afn-fulfillable-quantity'])
+        fba_dict[asin]['afn-warehouse-quantity'] += int(item['afn-warehouse-quantity'])
+        fba_dict[asin]['afn-total-quantity'] += int(item['afn-total-quantity'])
+        fba_dict[asin]['afn-inbound-shipped-quantity'] += int(item['afn-inbound-shipped-quantity'])
+        fba_dict[asin]['afn-reserved-quantity'] += int(item['afn-reserved-quantity'])
+
+    return fba_dict
 
 class MongoRole(enginedb.Document, RoleMixin):
     name = enginedb.StringField(max_length=80, unique=True)
@@ -208,6 +314,7 @@ class MongoUser(enginedb.Document, UserMixin):
     ss_lastupdated = enginedb.DateTimeField()
     inventory_updated = enginedb.DateTimeField()
     alias_updated = enginedb.DateTimeField()
+    fba_updated = enginedb.DateTimeField()
 
 
 # Setup Flask-Security
@@ -287,6 +394,7 @@ class ProfileView(BaseView):
         apiform = SSAPI(prefix='apiform')
         inventoryform = FileUploadForm(prefix='inventoryform')
         aliasform = FileUploadForm(prefix='aliasform')
+        fbaform = FileUploadForm(prefix='fbaform')
         nice_now = datetime.strftime(now,"%m-%d-%Y at %I:%M %p")
 
         if request.method == 'POST' and apiform.submit.data:
@@ -364,8 +472,44 @@ class ProfileView(BaseView):
                 mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'alias_updated':nice_now}})
             return redirect(url_for('import.UserProfile'))
 
+        if fbaform.validate_on_submit() and fbaform.submit.data:
+            f = fbaform.file.data
+            filename = secure_filename(f.filename)
+            save_path = os.path.join(app.root_path,'uploads', filename)
+            f.save(save_path)
+            fba = csv.DictReader(open(save_path, 'rb'), delimiter='\t')
+            text = []
+            lines = 0
 
-        return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform)
+            for line in fba :
+                try:
+                    encoded_line = {k: unicode(v).decode("utf-8") for k,v in line.iteritems()}
+                except:
+                    try:
+                        encoded_line = {k: unicode(v).decode("utf-16") for k,v in line.iteritems()}
+                    except:
+                        #print encoded_line
+                        continue
+                try:
+                    encoded_line['Owner'] = current_user.email
+                    encoded_line['fba_updated'] = nice_now
+                    mongo.db.fba.update({'asin':line['asin']},encoded_line,upsert=True)
+
+                    #mongo.db.fba.update({'email':current_user.email},{'$set':{'sku':line['sku']}},encoded_line,upsert=True)
+                except:
+                    print("line write error")
+                    flash(encoded_line)
+
+                lines+= 1
+
+            mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'fba_updated':nice_now}})
+            flash('Imported ' + str(lines) + ' FBA Records')
+
+            return redirect(url_for('import.UserProfile'))
+
+
+
+        return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform, fbaform=fbaform)
 
 class SalesView(BaseView):
     @expose('/',methods=('GET', 'POST'))
@@ -435,7 +579,6 @@ class SalesView(BaseView):
 class InventoryView(BaseView):
     @expose('/',methods=(['GET']))
     def InventoryCharts(self):
-
         i = 0
         values = []
         labels = []
@@ -452,6 +595,7 @@ class InventoryView(BaseView):
 
         formvalue = False
         start, end = DateFormHanlder(formvalue)
+        start = start - timedelta(days=15)
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
@@ -472,32 +616,68 @@ class InventoryView(BaseView):
         item_sales_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
         sku_sales_index = []
         total_qty_sold = 0
+
         for item in item_sales_chart :
             sku_sales_index.append(item[0])
             total_qty_sold += item[3]
 
-        inventory = mongo.db.inventory.find()
+
+        fba_dict = FBADictBuilder()
+
+        inventory = mongo.db.inventory.find({'Owner':email})
 
         for item in inventory :
             row = []
-            try:
-                qty_total += int(item['Stock'])
-            except:
-                continue
+            amz_qty = 0
+            sku_count+=1
+            matched_asin = False
+            sku = item['SKU']
+            alias_list = []
+            item_amz_warehouse = 0
+            item_amz_inbound = 0
+
+            for k,v in alias_dict.iteritems() :
+                if v == sku :
+                    alias_list.append(k)
+
+            local_qty = item['Stock']
+            qty_total += int(local_qty)
+            true_count = 0
+            for alias in alias_list :
+                if alias in fba_dict :
+                    matched_asin = True
+                    item_amz_warehouse = int(fba_dict[alias]['afn-warehouse-quantity'])
+                    item_amz_inbound = int(fba_dict[alias]['afn-inbound-shipped-quantity'])
+                    amz_qty = item_amz_warehouse + item_amz_inbound
+                    qty_total += amz_qty
+                    true_count +=1
+                    if true_count > 1 :
+                        flash('Multiple ASIN Match on: '+ item['Product Name'])
+
+
             if item['Avg Cost'] > 0 :
-                total_value += item['Avg Cost']*item['Stock']
+                total_value += item['Avg Cost']*(local_qty + amz_qty)
+
             else :
                 if "Socks" in item['Product Name'] :
-                    total_value += 1.25*item['Stock']
+                    ## Placeholder for inventory value
+                    total_value += 1.25*int(local_qty+amz_qty)
                 else :
-                    total_value += .75*item['Stock']
+                    ## Placeholder for inventory value
+                    total_value += .75*int(local_qty+amz_qty)
 
-            sku_count+=1
-            sku = item['SKU']
+
             row.append(sku)
             row.append(item['Product Name'])
             row.append(int(item['Stock']))
+            if matched_asin :
+                row.append(item_amz_warehouse)
+                row.append(item_amz_inbound)
+            else :
+                row.append(0)
+                row.append(0)
 
+            ## FBA
 
             if sku in sku_sales_index :
                 sales_idx = sku_sales_index.index(sku)
@@ -506,16 +686,132 @@ class InventoryView(BaseView):
                 qty_sold = 0
 
             row.append(qty_sold)
-            burn = float(qty_sold)/int(delta_range)
+            burn = float(qty_sold)/float(delta_range)
 
             if burn == 0:
                 inventory_days = 9999999
             else :
-                inventory_days = int(item['Stock']) / burn
+                inventory_days = int(local_qty+amz_qty) / burn
 
 
             row.append(inventory_days)
             items_chart.append(row)
+
+
+        top_bar.append(qty_total)
+        top_bar.append(round(total_value,2))
+        top_bar.append(sku_count)
+        sell_through_rate = float(total_qty_sold) / float(total_qty_sold+qty_total)
+        top_bar.append(sell_through_rate*100)
+
+
+        return self.render('admin/inventory_index.html', items_chart=items_chart, top=top_bar)
+
+    @expose('/fba',methods=('GET', 'POST'))
+    def FBAInventory(self):
+        i = 0
+        values = []
+        labels = []
+        orders= []
+        shipped_to_amz = 0
+        # Sku, Name, Sales, Qty
+        items_chart = []
+        sku_list = []
+
+        top_bar = []
+        qty_total = 0
+        total_value = 0
+        sku_count = 0
+
+        formvalue = False
+        start, end = DateFormHanlder(formvalue)
+        start = start - timedelta(days=15)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+        date_dict, labels = DateDictBuilder(start, end)
+
+        email = current_user.email
+
+        #Build Alias Dictionary - all owner alias values
+        alias_search = mongo.db.alias.find({'Owner':email})
+        alias_dict = AliasDictBuilder(alias_search)
+
+        ## Find Owner Orders in Date Range
+        range_search = mongo.db.orders.find({'$and':[
+        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'owner':email}]})
+
+        item_sku = 'All'
+        item_dict, values, shipped_to_amz = ItemDictBuilder(range_search, date_dict, alias_dict, item_sku)
+        total_qty_sold = 0
+
+        fba_inventory = mongo.db.fba.find()
+
+        fba_dict = {}
+        for fba_item in fba_inventory :
+            asin = fba_item['asin']
+            fba_dict[asin]={}
+            for k, v in fba_item.iteritems() :
+                fba_dict[asin][k] = v
+
+        #inventory = mongo.db.inventory.find({'Owner':email})
+
+        for item in fba_inventory :
+            row = []
+            amz_qty = 0
+            sku_count+=1
+            matched_asin = False
+            sku = item['SKU']
+
+            for k,v in alias_dict.iteritems() :
+                if v == sku :
+                    test_asin = k
+                    if test_asin in fba_dict :
+                        matched_asin = test_asin
+
+            #local_qty = item['Stock']
+            #qty_total += int(local_qty)
+
+            if matched_asin :
+                amz_qty = int(fba_dict[matched_asin]['afn-fulfillable-quantity'])
+                qty_total += amz_qty
+
+            if item['Avg Cost'] > 0 :
+                total_value += item['Avg Cost'] * amz_qty
+            else :
+                if "Socks" in item['Product Name'] :
+                    ## Placeholder for inventory value
+                    total_value += 1.25*int(local_qty+amz_qty)
+                else :
+                    ## Placeholder for inventory value
+                    total_value += .75*int(local_qty+amz_qty)
+
+
+            row.append(sku)
+            row.append(item['Product Name'])
+            if matched_asin :
+                row.append(amz_qty)
+                row.append(fba_dict[matched_asin]['afn-inbound-shipped-quantity'])
+            else :
+                row.append(0)
+                row.append(0)
+
+            #Amazon Sales only - may conflate Merchant & Amazon fullfilled
+            qty_sold = item_dict[sku]['stores'][226766]
+            total_qty_sold += qty_sold
+
+            row.append(qty_sold)
+            burn = float(qty_sold)/float(delta_range)
+
+            if burn == 0:
+                inventory_days = 9999999
+            else :
+                inventory_days = int(local_qty+amz_qty) / burn
+
+            row.append(inventory_days)
+            items_chart.append(row)
+
 
         top_bar.append(qty_total)
         top_bar.append(round(total_value,2))
@@ -668,7 +964,7 @@ class ProductView(BaseView):
         top_bar.append(sales_total)
         top_bar.append(qty_total)
         top_bar.append(shipped_to_amz)
-        avg_burn = qty_total / delta_range
+        avg_burn = float(qty_total) / float(delta_range)
         top_bar.append(avg_burn)
 
         max_values = max(values)

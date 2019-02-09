@@ -86,13 +86,19 @@
         <!-- Main row -->
         <div class="row">
           <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
+            <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
+
             <thead>
                 <tr>
                     <th class="th-sm">Sku</th>
                     <th class="th-sm">Name</th>
-                    <th class="th-sm">Stock</th>
-                    <th class="th-sm">Qty Sold</th>
+                    <th class="th-sm">Local Stock</th>
+                    <th class="th-sm">Amz Warehouse</th>
+                    <th class="th-sm">Amz Inbound</th>
+                    <th class="th-sm">Qty Sold (45 Days)</th>
                     <th class="th-sm">Inventory Days</th>
+
+
 
                 </tr>
             </thead>
@@ -101,9 +107,11 @@
                 <tr>
                     <td>{{item[0]}}</td>
                     <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
-                    <td width="20%">{{item[2]}}</td>
-                    <td width="20%">{{item[3]}}</td>
-                    <td width="20%">{{"{:,.1f}".format(item[4])}}</td>
+                    <td width="10%">{{item[2]}}</td>
+                    <td width="10%">{{item[3]}}</td>
+                    <td width="10%">{{item[4]}}</td>
+                    <td width="20%">{{item[5]}}</td>
+                    <td width="20%">{{"{:,.1f}".format(item[6])}}</td>
 
                 </tr>
                 {% endfor %}
@@ -161,7 +169,8 @@
     $(document).ready(function () {
       $('#dtBasicExample').DataTable({
        "paging": true, // false to disable pagination (or any other option)
-       "order":[[4, "asc"]],
+       "order":[[5, "desc"]],
+       'iDisplayLength' : 100,
        "language":{
          "search":"",
          "searchPlaceholder":"Search. . ."
@@ -169,5 +178,37 @@
         });
     $('.dataTables_length').addClass('bs-select');
   });
+  </script>
+  <script>
+  function downloadCSV(csv, filename) {
+      var csvFile;
+      var downloadLink;
+      // CSV file
+      csvFile = new Blob([csv], {type: "text/csv"});
+      // Download link
+      downloadLink = document.createElement("a");
+      // File name
+      downloadLink.download = filename;
+      // Create a link to the file
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      // Hide download link
+      downloadLink.style.display = "none";
+      // Add the link to DOM
+      document.body.appendChild(downloadLink);
+      // Click download link
+      downloadLink.click();
+  }
+        function exportTableToCSV(filename) {
+            var csv = [];
+            var rows = document.querySelectorAll("table tr");
+            for (var i = 0; i < rows.length; i++) {
+                var row = [], cols = rows[i].querySelectorAll("td, th");
+                for (var j = 0; j < cols.length; j++)
+                    row.push('"'+cols[j].innerText+'"');
+                csv.push(row.join(","));
+            }
+            // Download CSV file
+            downloadCSV(csv.join("\n"), filename);
+        }
   </script>
   {% endblock tail %}
