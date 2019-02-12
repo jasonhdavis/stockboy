@@ -497,7 +497,7 @@ class ProfileView(BaseView):
             save_path = os.path.join(app.root_path,'uploads', filename)
             f.save(save_path)
 
-            fba = csv.DictReader(open(save_path, 'rt'), delimiter='\t')
+            fba = csv.DictReader(open(save_path, 'rt'), delimiter='\t', encoding='ascii')
             text = []
             lines = 0
             mongo.db.fba.remove({"Owner":current_user.email})
