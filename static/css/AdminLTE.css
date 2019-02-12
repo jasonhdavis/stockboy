@@ -4929,6 +4929,14 @@ input[type='submit'], button {
 	float: right;
 }
 
+/* @group Security */
+
+#register, #login {
+	color: #232323;
+} 
+
+/* @end */
+
 /* @group Type & Pre */
 
 

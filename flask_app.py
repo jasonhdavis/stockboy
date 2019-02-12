@@ -1231,7 +1231,15 @@ def serve_file_in_dir(path):
     return send_from_directory(request_file_dir, filename)
 
 
+def authenticated_resource(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'auth_token' in session:
+            return f(*args, **kwargs)
 
+        return redirect(url_for('login'))
+
+    return decorated
 
     #amazon = mongo.db.orders.find({'shipTo':{'name':{'$regex':'.*Amazon.*'}}})
     #amazon_list = []
@@ -1241,18 +1249,6 @@ colors = [
     "#F7464A", "#46BFBD", "#FDB45C", "#FEDCBA",
     "#ABCDEF", "#DDDDDD", "#ABCABC", "#4169E1",
     "#C71585", "#FF4500", "#FEDCBA", "#46BFBD"]
-
-@app.route('/bar')
-def bar():
-    bar_labels=labels
-    bar_values=values
-    return render_template('bar_chart.html', title='Bitcoin Monthly Price in USD', max=17000, labels=bar_labels, values=bar_values)
-
-#@app.route('/sales')
-#def line():
-#    line_labels=labels
-#    line_values=values
-#    return render_template('line_chart.html', title='Sales', max=max(values)*1.2, labels=line_labels, values=line_values, orders=items_chart, top=top_bar)
 
 
 # Create admin
