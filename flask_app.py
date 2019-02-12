@@ -7,7 +7,7 @@ import csv
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
-from flask import Flask, url_for, redirect, render_template, request, abort, flash
+from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory
 from flask_mongoengine import MongoEngine
 from flask_security import Security, \
     UserMixin, RoleMixin, login_required, current_user, datastore, MongoEngineUserDatastore
@@ -1211,10 +1211,27 @@ class ShipmentView(BaseView):
         return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
 # Flask views
-@app.route('/')
-def index():
+index_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'getting-started')
+assets_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'getting-started/assets')
 
-    return render_template('index.html')
+@app.route('/', methods=['GET'])
+def homepage():
+    return send_from_directory(index_file_dir, 'index.html')
+
+
+@app.route('/assets/<path:path>', methods=['GET'])
+def serve_file_in_dir(path):
+
+    if not os.path.isfile(os.path.join(assets_file_dir, path)):
+        path = os.path.join(index_file_dir, 'index.html')
+
+    path, filename = os.path.split(path)
+    request_file_dir = os.path.join(assets_file_dir,path)
+
+    return send_from_directory(request_file_dir, filename)
+
+
+
 
     #amazon = mongo.db.orders.find({'shipTo':{'name':{'$regex':'.*Amazon.*'}}})
     #amazon_list = []
@@ -1236,7 +1253,6 @@ def bar():
 #    line_labels=labels
 #    line_values=values
 #    return render_template('line_chart.html', title='Sales', max=max(values)*1.2, labels=line_labels, values=line_values, orders=items_chart, top=top_bar)
-
 
 
 # Create admin
