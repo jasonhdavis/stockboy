@@ -107,23 +107,6 @@
     <aside class="main-sidebar">
       <!-- sidebar: style can be found in sidebar.less -->
       <section class="sidebar">
-        <!-- Sidebar user panel -->
-        <div class="user-panel">
-          <div class="pull-left image">
-            <i class="fa fa-user-circle" style="color: white; font-size: 2.5em;"></i>
-          </div>
-          <div class="pull-left info">
-            <p>
-             {% if current_user.first_name -%}
-             {{ current_user.first_name }}
-             {% else -%}
-             {{ current_user.email }}
-             {%- endif %}
-           </p>
-           <a href="#"><i class="fa fa-circle text-success"></i>Logged In</a>
-         </div>
-       </div>
-
       <!-- sidebar menu: : style can be found in sidebar.less -->
       <ul class="sidebar-menu">
         {% block main_menu %}

@@ -30,6 +30,8 @@ from werkzeug.datastructures import CombinedMultiDict
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 
+from flask_login import LoginManager
+
 
 import xlrd
 
@@ -45,6 +47,10 @@ datepicker(app)
 mongo = PyMongo(app)
 enginedb = MongoEngine(app)
 mail = Mail(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
 #scheduler = BackgroundScheduler()
 #atexit.register(lambda: scheduler.shutdown())
 now = datetime.now()
@@ -348,6 +354,7 @@ class MongoUser(enginedb.Document, UserMixin):
     fba_updated = enginedb.DateTimeField()
 
 
+
 # Setup Flask-Security
 #user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 #security = Security(app, user_datastore)
@@ -406,6 +413,7 @@ class SSAPI(FlaskForm):
 
 class ProfileView(BaseView):
     @expose('/', methods=('GET','POST'))
+    @login_required
     def UserProfile(self):
         apiform = SSAPI(prefix='apiform')
         inventoryform = FileUploadForm(prefix='inventoryform')
@@ -532,6 +540,7 @@ class ProfileView(BaseView):
 
 class SalesView(BaseView):
     @expose('/',methods=('GET', 'POST'))
+    @login_required
     def index(self):
         formvalue = False
         if request.method == 'POST':
@@ -597,6 +606,7 @@ class SalesView(BaseView):
 
 class InventoryView(BaseView):
     @expose('/',methods=(['GET']))
+    @login_required
     def InventoryCharts(self):
         i = 0
         values = []
@@ -843,6 +853,7 @@ class InventoryView(BaseView):
 
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
+    @login_required
     #def is_visible(self):
         #return False
     def ProductIndex(self) :
@@ -995,6 +1006,7 @@ class ProductView(BaseView):
 
 class CustomerView(BaseView) :
     @expose('/',methods=('GET', 'POST'))
+    @login_required
     def CustomerIndex(self) :
         formvalue = False
         if request.method == 'POST':
@@ -1101,6 +1113,7 @@ class CustomerView(BaseView) :
 
 class ShipmentView(BaseView):
     @expose('/',methods=('GET', 'POST'))
+    @login_required
     #def is_visible(self):
         #return False
     def index(self):
@@ -1231,15 +1244,7 @@ def serve_file_in_dir(path):
     return send_from_directory(request_file_dir, filename)
 
 
-def authenticated_resource(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'auth_token' in session:
-            return f(*args, **kwargs)
 
-        return redirect(url_for('login'))
-
-    return decorated
 
     #amazon = mongo.db.orders.find({'shipTo':{'name':{'$regex':'.*Amazon.*'}}})
     #amazon_list = []

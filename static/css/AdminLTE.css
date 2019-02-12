@@ -150,8 +150,8 @@ body.hold-transition .main-header .logo {
   margin-left: auto;
   padding-left: 15px;
   padding-right: 15px;
- color: #fff;
-	background-color: #222;
+ color: #212121;
+	background-color: #fff;
 }
 /* H1 - H6 font */
 h1,
@@ -170,7 +170,7 @@ h6,
 }
 /* General Links */
 a {
-  color: #3c8dbc;
+  color: #3b60af;
 }
 a:hover,
 a:active,
@@ -4915,8 +4915,8 @@ table.text-center th {
 
 input[type='submit'], button {
 	 color: #fff;
-  background-color: #375a7f;
-  border-color: #375a7f;
+  background-color: #3b60af;
+  border-color: #3b60af;
 	border-style: solid;
 	margin: 1em 0;
 }
@@ -5044,14 +5044,14 @@ sup {
 }
 
 a {
-  color: #00bc8c;
+  color: #3b60af;
   text-decoration: none;
   background-color: transparent;
   -webkit-text-decoration-skip: objects;
 }
 
 a:hover {
-  color: #007053;
+  color: #3b60af;
   text-decoration: underline;
 }
 
@@ -5444,8 +5444,20 @@ pre code {
 
 /* @group Nav & Content Header */
 
+a.logo {
+	background-image: url(../img/stockboy-logo.png);
+	  background-size: 180px;
+	  background-repeat: no-repeat;
+
+	font-size: 0 !important;
+	margin-left: 7px;
+	margin-right: -8px;
+}
+
+
+
 nav.navbar.navbar-static-top {
-	background-color: #54B88F !important;
+	background-color: #3b60af !important;
 }
 
 .navbar-static-top a.sidebar-toggle:hover {
@@ -5456,7 +5468,8 @@ nav.navbar.navbar-static-top {
 }
 
 header a.logo, aside.main-sidebar {
-	background-color: #303030 !important;
+	background-color: #d6d6d4 !important;
+
 }
 
 .main-sidebar .user-panel {
@@ -5468,14 +5481,18 @@ header a.logo, aside.main-sidebar {
 
 }
 
+.main-sidebar li a {
+	color: #3b60af !important;
+}
+
 .main-sidebar li a I {
 	margin-right: .6em;
 }
 
 .main-sidebar li.active a, .main-sidebar li a:hover {
-	background-color: #222 !important;
-	color: #00bc8c !important;
-	border-color: #00bc8c !important;
+	background-color: #3b60af !important;
+	color: #fff !important;
+	border-color: #ff828c !important;
 	margin-top: 1px;
 }
 
@@ -5553,11 +5570,10 @@ div.daterangepicker {width: 645px !important;}
 }
 
 .content-header ol.breadcrumb li {
-	color: #fff;
 }
 .content-header ol.breadcrumb a {
 	font-weight: 400;
-  color: #00bc8c;
+  color: #3b60af;
   background-color: transparent;
 }
 
@@ -5590,6 +5606,7 @@ a:hover {
 
 .bg-primary {
   background-color: #375a7f !important;
+  color: #fff;
 }
 
 a.bg-primary:hover, a.bg-primary:focus,
@@ -5610,6 +5627,8 @@ button.bg-secondary:focus {
 
 .bg-success {
   background-color: rgba(0,188,140,0.75) !important;
+  color: #fff;
+
 }
 
 a.bg-success:hover, a.bg-success:focus,
@@ -5620,6 +5639,8 @@ button.bg-success:focus {
 
 .bg-info {
   background-color: rgba(52,152,219,0.75) !important;
+  color: #fff;
+
 }
 
 a.bg-info:hover, a.bg-info:focus,
@@ -5630,6 +5651,8 @@ button.bg-info:focus {
 
 .bg-warning {
   background-color: rgba(243,156,18,0.75)!important;
+    color: #fff;
+
 }
 
 a.bg-warning:hover, a.bg-warning:focus,
@@ -5640,6 +5663,8 @@ button.bg-warning:focus {
 
 .bg-danger {
   background-color: rgba(231,76,60,0.75)!important;
+  color: #fff;
+
 }
 
 a.bg-danger:hover, a.bg-danger:focus,
@@ -5687,27 +5712,29 @@ button.bg-dark:focus {
 .table {
   width: 100%;
   margin-bottom: 1rem;
-  background-color: transparent;
+  background-color: #d6d6d4;
+}
+
+.table a {
+	color: #3b60af;
 }
 
 .table th,
 .table td {
   padding: 0.75rem;
   vertical-align: top;
-  border-top: 1px solid #444;
 }
 
 .table thead th {
   vertical-align: bottom;
-  border-bottom: 2px solid #444;
+
 }
 
 .table tbody + tbody {
-  border-top: 2px solid #444;
 }
 
 .table .table {
-  background-color: #222;
+  background-color: #;
 }
 
 .table-sm th,
@@ -5716,12 +5743,12 @@ button.bg-dark:focus {
 }
 
 .table-bordered {
-  border: 1px solid #444;
+  border: 1px solid #d6d6d4 !important;
 }
 
 .table-bordered th,
 .table-bordered td {
-  border: 1px solid #444 !Important;
+  border: 1px solid #d6d6d4 !important;
 }
 
 .table-bordered thead th,
@@ -5737,7 +5764,7 @@ button.bg-dark:focus {
 }
 
 .table-striped tbody tr.odd {
-  background-color: #303030 !important;
+  background-color: #fff !important;
 }
 
 
