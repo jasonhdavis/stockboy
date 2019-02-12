@@ -14,6 +14,7 @@ from flask_security import Security, \
 from flask_security.utils import encrypt_password
 import hashlib
 import base64
+from flask_mail import Mail
 import flask_admin
 from flask_admin.contrib import sqla
 from flask_admin import helpers as admin_helpers
@@ -28,6 +29,8 @@ from werkzeug.utils import secure_filename
 from werkzeug.datastructures import CombinedMultiDict
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
+
+
 import xlrd
 
 
@@ -41,6 +44,7 @@ datepicker(app)
 
 mongo = PyMongo(app)
 enginedb = MongoEngine(app)
+mail = Mail(app)
 #scheduler = BackgroundScheduler()
 #atexit.register(lambda: scheduler.shutdown())
 now = datetime.now()
@@ -299,6 +303,33 @@ def FBADictBuilder() :
 
     return fba_dict
 
+def ShipmentDictBuilder(start, end) :
+    cursor = mongo.db.shipments.find({'$and':[
+    {'createDate':{'$lte': end, '$gte':start}},
+    {'owner':current_user.email}]})
+
+    ship_dict = {}
+    for item in cursor :
+        order_id = item['orderId']
+        if order_id not in ship_dict :
+            ship_dict[order_id] = {}
+            sd = ship_dict[order_id]
+            sd['shipmentCost'] = item['shipmentCost']
+            sd['name'] = item['shipTo']['name']
+            sd['createDate'] = item['createDate']
+            sd['carrierCode'] = item['carrierCode']
+            sd['trackingNumber'] = item['trackingNumber']
+        else :
+            ## Spilt shipment / multiple shipments for one order
+            sd = ship_dict[order_id]
+            sd['shipmentCost'] += item['shipmentCost']
+            if sd['createDate'] < item['createDate'] :
+                sd['createDate'] = item['createDate']
+                sd['carrierCode'] = item['carrierCode']
+                sd['trackingNumber'] = item['trackingNumber']
+
+    return ship_dict
+
 class MongoRole(enginedb.Document, RoleMixin):
     name = enginedb.StringField(max_length=80, unique=True)
     description = enginedb.StringField(max_length=255)
@@ -363,21 +394,6 @@ class MongoUserView(MyModelView):
     column_details_exclude_list = column_exclude_list
     column_filters = column_editable_list
 
-class InventoryView(BaseView):
-    @expose('/',methods=('GET', 'POST'))
-    def InventoryReport(self):
-        return 'Build this'
-
-class AmazonView(BaseView):
-    @expose('/',methods=('GET', 'POST'))
-    def Amazon(self):
-        return 'Build this'
-
-class BurnView(BaseView):
-    @expose('/',methods=('GET', 'POST'))
-    def BurnReport(self):
-        return 'Build this'
-
 class FileUploadForm(FlaskForm) :
     file = FileField(validators=[FileRequired()])
     submit = SubmitField('Upload')
@@ -418,6 +434,7 @@ class ProfileView(BaseView):
             if ws.cell_value(0,0) != 'ShipStation Stock Report' :
                 flash('File does not match expected Inventory Stock Report format')
             else:
+                mongo.db.inventory.remove({"Owner":current_user.email})
                 col_len = len(ws.col(0))
                 r = 8
                 update_count = 0
@@ -459,6 +476,8 @@ class ProfileView(BaseView):
             if ws.cell_value(0,2) != 'Store Name':
                 flash('Uploaded File does not match expected Alias Report Format')
             else:
+                mongo.db.alias.remove({"Owner":current_user.email})
+
                 while r < col_len :
                     row = {}
                     row['Product SKU'] = str(ws.cell_value(r,0))
@@ -480,7 +499,7 @@ class ProfileView(BaseView):
             fba = csv.DictReader(open(save_path, 'rb'), delimiter='\t')
             text = []
             lines = 0
-
+            mongo.db.fba.remove({"Owner":current_user.email})
             for line in fba :
                 try:
                     encoded_line = {k: unicode(v).decode("utf-8") for k,v in line.iteritems()}
@@ -506,7 +525,6 @@ class ProfileView(BaseView):
             flash('Imported ' + str(lines) + ' FBA Records')
 
             return redirect(url_for('import.UserProfile'))
-
 
 
         return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform, fbaform=fbaform)
@@ -585,7 +603,7 @@ class InventoryView(BaseView):
         orders= []
         shipped_to_amz = 0
         # Sku, Name, Sales, Qty
-        items_chart = []
+        items_chart =    []
         sku_list = []
 
         top_bar = []
@@ -621,7 +639,6 @@ class InventoryView(BaseView):
             sku_sales_index.append(item[0])
             total_qty_sold += item[3]
 
-
         fba_dict = FBADictBuilder()
 
         inventory = mongo.db.inventory.find({'Owner':email})
@@ -636,13 +653,14 @@ class InventoryView(BaseView):
             item_amz_warehouse = 0
             item_amz_inbound = 0
 
-            for k,v in alias_dict.iteritems() :
+            for k,v in alias_dict.items() :
                 if v == sku :
                     alias_list.append(k)
 
             local_qty = item['Stock']
             qty_total += int(local_qty)
             true_count = 0
+
             for alias in alias_list :
                 if alias in fba_dict :
                     matched_asin = True
@@ -1084,8 +1102,112 @@ class ShipmentView(BaseView):
     @expose('/',methods=('GET', 'POST'))
     #def is_visible(self):
         #return False
-    def ShipmentIndex(self) :
-        return "Shipment details go here"
+    def index(self):
+        formvalue = False
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+
+        start, end = DateFormHanlder(formvalue)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+
+        date_dict, labels = DateDictBuilder(start, end)
+
+        ship_dict = ShipmentDictBuilder(start, end)
+
+        shipment_range_order_ids = ship_dict.keys()
+        order_cursor = mongo.db.orders.find({'orderId':{'$in':shipment_range_order_ids}})
+
+        ## Order Dict Builder
+        order_dict = {}
+        for order in order_cursor :
+            order_id = order['orderId']
+            order_dict[order_id] = {}
+            od = order_dict[order_id]
+
+            od['paymentDate'] = order['paymentDate']
+            order_qty = 0
+            for item in order['items']:
+                order_qty += item['quantity']
+
+            od['orderQty'] = order_qty
+
+        shipment_count = 0
+        handle_times = []
+        shipping_times = []
+        shipment_chart = []
+        shipment_costs = []
+        qty_total = 0
+        for shipment in ship_dict :
+            row = []
+            order_id = int(shipment)
+            row.append(order_id)
+            row.append(ship_dict[shipment]['name'])
+            order_payment_timestamp = order_dict[order_id]['paymentDate']
+
+            create_date = ship_dict[shipment]['createDate']
+
+            handle_time = create_date - order_payment_timestamp
+
+            days = handle_time.days
+            seconds = handle_time.total_seconds()
+            hours = seconds // 3600
+            hours = hours - (days*24)
+            minutes = (seconds % 3600) // 60
+            seconds = seconds % 60
+            handle_time_string = '{} days, {} hours'.format(days, hours)
+            row.append(handle_time_string)
+            if handle_time.total_seconds() != 0:
+                handle_times.append(handle_time)
+
+            if 'actual_delivery_date' in ship_dict[shipment].keys() :
+                shipping_time = ship_dict[shipment]['actual_delivery_date'] - create_date
+                shipping_times.append(shipping_time)
+            else :
+                shipping_time = 'NA'
+
+            row.append(shipping_time)
+
+            order_qty = order_dict[order_id]['orderQty']
+            row.append(order_qty)
+            qty_total += order_qty
+
+            row.append(ship_dict[shipment]['shipmentCost'])
+            shipment_costs.append(ship_dict[shipment]['shipmentCost'])
+
+            shipment_count += 1
+            shipment_chart.append(row)
+
+            date_dict[create_date.year][create_date.month][create_date.day]+= 1
+
+        values = []
+        for year in date_dict.values() :
+            for month in year.values() :
+                for day in month.values() :
+                    values.append(day)
+
+
+
+        top_bar = []
+        top_bar.append(shipment_count)
+
+        average_handletime = sum(handle_times, timedelta(0)) / len(handle_times)
+        #average_handletime = average_handletime.hours
+        #days = handle_time.days
+        seconds = average_handletime.total_seconds()
+        hours = int(seconds) / 3600
+        hours = hours - (days*24)
+        #minutes = (seconds % 3600) // 60
+        #seconds = seconds % 60
+        avg_handle_time_string = '{} days, {} hours'.format(days, hours)
+
+        top_bar.append(avg_handle_time_string)
+        average_cost = sum(shipment_costs)/len(shipment_costs)
+        top_bar.append(average_cost)
+        top_bar.append(qty_total/delta_range)
+
+        return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
 # Flask views
 @app.route('/')

@@ -1,0 +1,218 @@
+{% extends 'admin/base.html' %}
+{% block body %}
+{{ super() }}
+{% if current_user.is_authenticated %}
+
+
+<!-- Content Header (Page header) -->
+
+<section class="content">
+
+  <div class="row">
+    <!-- Left col -->
+    <section class="container">
+        <section class="content-header">
+
+          <h1>Shipments</h1>
+            <small>Shipments within date range. Use to calculate order cycle, handling time and shipping costs</small>
+
+          <ol class="breadcrumb">
+              <li><a href="#"><i class="fa fa-dashboard"></i> Dashboard</a></li>
+              <li class="active">Products</li>
+          </ol>
+
+          <div class="date-picker col-xs-3">
+            <form id ='daterangeform' action="{{url_for('product.ProductIndex')}}" method="post">
+              <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
+                <input autocomplete="off" class="form-control" type="text" name="daterange" >
+                <input type="submit" name="submit" id="date-submit" value="Go">
+            </form>
+            <script>
+              </div>
+            $(function() {
+              $('input[name="daterange"]').daterangepicker({
+                ranges: {
+                'Today': [moment(), moment()],
+                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                'This Month': [moment().startOf('month'), moment().endOf('month')],
+                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+            },
+                "alwaysShowCalendars": true,
+                "autoApply": true,
+                "startDate": "{{startdate}}",
+                "endDate": "{{enddate}}"
+            }, function(start, end, label) {
+              $('#daterangeform submit').click()
+            });
+            });
+            </script>
+        </div>
+        </section>
+
+        </section>
+        <section class="content">
+          <!-- Small boxes (Stat box) -->
+          <div class="row">
+            <div class="col-lg-3 col-xs-6">
+              <!-- small box -->
+              <div class="small-box bg-success">
+                <div class="inner">
+                  <h3>{{ top[0] }}</h3>
+                  <p>Shipments</p>
+              </div>
+              <div class="icon">
+                  <i class="ion ion-pricetag"></i>
+              </div>
+              <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
+          </div>
+        </div>
+        <!-- ./col -->
+        <div class="col-lg-3 col-xs-6">
+          <!-- small box -->
+          <div class="small-box bg-info">
+            <div class="inner">
+              <h3>{{ top[1] }}</h3>
+
+              <p>Handling Time</p>
+          </div>
+          <div class="icon">
+              <i class="ion ion-stats-bars"></i>
+          </div>
+          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
+        </div>
+        </div>
+        <!-- ./col -->
+        <div class="col-lg-3 col-xs-6">
+          <!-- small box -->
+          <div class="small-box bg-warning">
+            <div class="inner">
+              <h3>${{top[2]}}</h3>
+
+              <p>Avg Cost</p>
+          </div>
+          <div class="icon">
+              <i class="ion ion-filing"></i>
+          </div>
+          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
+        </div>
+        </div>
+        <!-- ./col -->
+        <div class="col-lg-3 col-xs-6">
+          <!-- small box -->
+          <div class="small-box bg-danger">
+            <div class="inner">
+              <h3>{{top[3]}}</h3>
+
+              <p>Qty Shipped Per Day</p>
+          </div>
+          <div class="icon">
+              <i class="ion ion-bonfire"></i>
+          </div>
+          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
+        </div>
+        </div>
+        <!-- ./col -->
+        </div>
+        <!-- /.row -->
+        <!-- Main row -->
+        <div class="row">
+          <canvas id="productbarchart"></canvas>
+          <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
+          <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
+            <thead>
+                <tr>
+                  <th class="th-sm">Status</th>
+                    <th class="th-sm">Order ID</th>
+                    <th class="th-sm">Ship To</th>
+                    <th class="th-sm">Handle Time</th>
+                    <th class="th-sm">Shipping Time</th>
+                    <th class="th-sm">Qty</th>
+                    <th class="th-sm">Cost</th>
+                </tr>
+            </thead>
+            <tbody >
+              {% for item in orders %}
+                <tr>
+                    <td width="3%">--</td>
+                    <td width="10%"><a href="../shipments/{{item[0]}}">{{item[0]}}</a></td>
+                    <td width="30%">{{item[1]}}</td>
+                    <td width="20%">{{item[2]}}</td>
+                    <td width="10%">{{item[3]}}</td>
+                    <td width="10%">{{item[4]}}</td>
+                    <td width="10%">${{item[5]}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+          </div>
+
+    </section>
+    <!-- /.Left col -->
+
+  </div>
+  <!-- /.row (main row) -->
+
+</section>
+<!-- /.content -->
+
+  {% endif %}
+
+  {% endblock body %}
+
+  {% block tail %}
+  <script>
+
+    $(document).ready(function () {
+      $('#dtBasicExample').DataTable({
+       "paging": false, // false to disable pagination (or any other option)
+       "order":[[3, "desc"]],
+       "language":{
+         "search":"",
+         "searchPlaceholder":"Search. . ."
+        }
+        });
+    $('.dataTables_length').addClass('bs-select');
+  });
+
+
+  // Product Bar Chart Canvas
+
+  var productindexbar = document.getElementById("productbarchart").getContext("2d");
+  var productData = {
+    labels: [
+      {% for label in labels %}
+        '{{ label }}',
+      {% endfor %}
+    ],
+    datasets : [{
+      backgroundColor: "rgba(84, 184, 143, 0.8)",
+      pointBackgroundColor: "rgba(84, 184, 143, 0.8)",
+
+      data : [
+        {% for value in values %}
+          {{ value }},
+        {% endfor %}
+        ]
+      }]
+    }
+  var productBarChart = new Chart(productindexbar, {
+    type:'bar',
+    data:productData,
+    options: {
+      responsive: true,
+      legend:{
+        display: false,
+    },
+    scales: {
+      xAxes:[{
+        ticks:{
+          display: false
+        }
+      }]
+    }
+  }
+  });
+  </script>
+  {% endblock tail %}
