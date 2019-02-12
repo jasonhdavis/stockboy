@@ -5578,7 +5578,6 @@ div.daterangepicker {width: 645px !important;}
 }
 
 .content-header ol.breadcrumb a:hover {
-	  color: #007053;
   text-decoration: underline;
   background-color: transparent;
   border-color: transparent;
@@ -5586,12 +5585,11 @@ div.daterangepicker {width: 645px !important;}
 
 a:link, a:visited {
   font-weight: 400;
-  color: #00bc8c;
+  color: #3b60af;
   background-color: transparent;
 }
 
 a:hover {
-  color: #007053 !important;
   text-decoration: underline;
   background-color: transparent;
   border-color: transparent;
@@ -5626,7 +5624,7 @@ button.bg-secondary:focus {
 }
 
 .bg-success {
-  background-color: rgba(0,188,140,0.75) !important;
+    background-color: rgba(59,96,175,0.85) !important;
   color: #fff;
 
 }
@@ -5634,11 +5632,13 @@ button.bg-secondary:focus {
 a.bg-success:hover, a.bg-success:focus,
 button.bg-success:hover,
 button.bg-success:focus {
-  background-color: #008966 !important;
+
 }
 
 .bg-info {
-  background-color: rgba(52,152,219,0.75) !important;
+
+  background-color: 
+  rgba(140,225,175,1) !important;
   color: #fff;
 
 }
@@ -5650,7 +5650,7 @@ button.bg-info:focus {
 }
 
 .bg-warning {
-  background-color: rgba(243,156,18,0.75)!important;
+  background-color: rgba(243,156,18,.85)!important;
     color: #fff;
 
 }
@@ -5662,7 +5662,7 @@ button.bg-warning:focus {
 }
 
 .bg-danger {
-  background-color: rgba(231,76,60,0.75)!important;
+  background-color: rgba(255,130,140,1)!important;
   color: #fff;
 
 }
@@ -5868,7 +5868,6 @@ input {
 }
 .file input {
 	padding-left: 0;
-	color: #00bc8c !important;
 }
 
 
@@ -6354,7 +6353,7 @@ input[type="button"].btn-block {
           flex-direction: column;
   min-width: 0;
   word-wrap: break-word;
-  background-color: #303030;
+  background-color: #d6d6d4;
   background-clip: border-box;
   border: 1px solid rgba(0, 0, 0, 0.125);
   border-radius: 0.25rem;
@@ -6405,9 +6404,10 @@ input[type="button"].btn-block {
 
 .card-header {
   padding: 0.75rem 1.25rem;
+  color: #fff;
   margin-bottom: 0;
-  background-color: #444;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+  background-color: #3b60af;
+
 }
 
 .card-header:first-child {
