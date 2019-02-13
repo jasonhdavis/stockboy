@@ -1,4 +1,7 @@
-/* @override http://127.0.0.1:5000/static/css/AdminLTE.css */
+/* @override 
+	http://127.0.0.1:5000/static/css/AdminLTE.css
+	https://stockboy.co/static/css/AdminLTE.css
+*/
 
 @import url(https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic);
 /*!
@@ -29,9 +32,11 @@ body {
 /* Layout */
 .wrapper {
   height: 100%;
-  position: relative;
+  width: 100%;
+  position: static;
   overflow-x: hidden;
   overflow-y: auto;
+	background-color: #ecf0f5 !important;
 }
 .wrapper:before,
 .wrapper:after {
@@ -260,12 +265,12 @@ a:focus {
   background-image: none;
   padding: 15px 15px;
   font-family: fontAwesome;
+	height: 55px;
 }
 .main-header .sidebar-toggle:before {
   content: "\f0c9";
 }
 .main-header a.sidebar-toggle:hover {
-  color: #fff;
   
 
 }
@@ -445,11 +450,18 @@ a:focus {
   -o-transition: -o-transform 0.3s ease-in-out, width 0.3s ease-in-out;
   transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
 }
+
+
 @media (max-width: 767px) {
   .main-sidebar,
   .left-side {
     padding-top: 100px;
   }
+  a.logo {
+	background-position: center;
+	margin-bottom: 5px;
+}
+
 }
 @media (max-width: 767px) {
   .main-sidebar,
@@ -4941,6 +4953,10 @@ input[type='submit'], button {
 
 /* @group Security */
 
+body.skin-blue .col-sm-12  {
+	
+}
+
 #register, #login {
 	color: #232323;
 } 
@@ -4956,9 +4972,8 @@ body {
   font-size: 1.2375rem !important;
   font-weight: 400;
   line-height: 1.5 !important;
-  color: #fff;
   text-align: left;
-  background-color: #222 ;
+  background-color: #fff ;
 }
 
 [tabindex="-1"]:focus {
@@ -5462,7 +5477,7 @@ a.logo {
 	font-size: 0 !important;
 	margin-right: -8px;
 	padding-right: 0;
-	height: 50px !important;
+	height: 55px !important;
 }
 
 
@@ -5474,13 +5489,17 @@ nav.navbar.navbar-static-top {
 .navbar-static-top a.sidebar-toggle:hover {
 	background-color: #fff !important;
 	text-decoration: none;
-	padding-top: 16px;
+	padding-top: 15px;
 	padding-bottom: 16px;
 }
 
 header a.logo, aside.main-sidebar {
-	background-color: #d6d6d4 !important;
+	background-color: #ecf0f5 !important;
 
+}
+
+section.sidebar {
+	margin-top: 10px;
 }
 
 .main-sidebar {
@@ -5503,11 +5522,10 @@ header a.logo, aside.main-sidebar {
 	background-color: #3b60af !important;
 	color: #fff !important;
 	border-color: #ff828c !important;
-	margin-top: 1px;
 }
 
 .main-header a.sidebar-toggle:hover {
-	  background-color: #d5d6d3 !important;
+	  background-color: #e5747d !important;
 }
 
 

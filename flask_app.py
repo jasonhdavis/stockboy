@@ -231,7 +231,8 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
 
         # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
-        if ship_to.find('Amazon') >-1 or ship_to.find('Golden State FC') >-1:
+        ship_add = order['shipTo']['street1']
+        if ship_to.find('Amazon') >-1 or ship_add.find('24208 SAN MICHELE') >-1:
             for item in order['items'] :
                 sku = item['sku']
                 if sku == item_sku or item_sku == 'All':
