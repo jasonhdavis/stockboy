@@ -232,8 +232,8 @@
                  }
              }
          }
-
       }
+
       });
 
 
@@ -275,15 +275,18 @@
     </script>
   <script>
     $(document).ready(function () {
-      $('#dtBasicExample').DataTable({
+    var table = $('#dtBasicExample').DataTable({
        "paging": false, // false to disable pagination (or any other option)
        "order":[[3, "desc"]],
+       "responive": true,
        "language":{
          "search":"",
          "searchPlaceholder":"Search. . ."
         }
         });
+        new $.fn.dataTable.FixedHeader( table );
     $('.dataTables_length').addClass('bs-select');
+
   });
   </script>
   {% endblock tail %}

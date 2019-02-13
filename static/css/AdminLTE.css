@@ -3261,7 +3261,14 @@ table.text-center th {
   margin: 7% auto;
 }
 @media (max-width: 768px) {
-  .login-box,
+
+table#dtBasicExample {
+	visibility: visible;
+	overflow: scroll;
+	display: block;
+}
+
+.login-box,
   .register-box {
     width: 90%;
     margin-top: 20px;
@@ -5449,13 +5456,13 @@ pre code {
 
 a.logo {
 	background-image: url(../img/stockboy-logo.png);
-	  background-size: 180px;
+	  background-size: 210px;
 	  background-repeat: no-repeat;
 
 	font-size: 0 !important;
-	margin-left: 7px;
 	margin-right: -8px;
 	padding-right: 0;
+	height: 50px !important;
 }
 
 
@@ -5476,13 +5483,12 @@ header a.logo, aside.main-sidebar {
 
 }
 
-.main-sidebar .user-panel {
-	padding-bottom: 2rem;
+.main-sidebar {
+	margin-top: .5rem;
 }
 
 .main-sidebar li {
 	font-size: 1.3rem;
-
 }
 
 .main-sidebar li a {
@@ -5734,7 +5740,7 @@ button.bg-dark:focus {
 
 .table thead th {
   vertical-align: middle;
-	background-color: #d5d6d3;
+
 }
 
 .table tbody + tbody {
