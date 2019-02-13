@@ -1,7 +1,13 @@
-<p>{{ _('Welcome %(email)s!', email=user.email) }}</p>
+<p>{{ _('Welcome to Stockboy!', email=user.email) }}</p>
 
-{% if security.confirmable %}
-<p>{{ _('You can confirm your email through the link below:') }}</p>
+
+<p>{{ _('Please confirm your email through the link below:') }}</p>
 
 <p><a href="{{ confirmation_link }}">{{ _('Confirm my account') }}</a></p>
-{% endif %}
+
+<h2>Getting Started</h2>
+<ol>
+  <li>Add your Shipstation Keys</li>
+  <li>Import your inventory</li>
+  <li>Import your alias list</li>
+</ol>

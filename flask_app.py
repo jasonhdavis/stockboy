@@ -1225,8 +1225,8 @@ class ShipmentView(BaseView):
         return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
 # Flask views
-index_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'getting-started')
-assets_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'getting-started/assets')
+index_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'homepage')
+assets_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'homepage/assets')
 
 @app.route('/', methods=['GET'])
 def homepage():
@@ -1285,6 +1285,7 @@ admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_ty
 #admin.add_view(AmazonView(name="Amazon", endpoint='amazon', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(ProfileView(name='Settings & Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
+
 
 
 ## Sub Items - Not visible in menu
