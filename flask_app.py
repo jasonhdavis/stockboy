@@ -157,7 +157,7 @@ def ItemDictBuilder(cursor, date_dict, alias_dict, item_sku):
     sku_list = []
     for order in cursor :
         # Sum Order Totals
-        payment_date = order['paymentDate']
+        order_date = order['orderDate']
 
         # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
@@ -200,7 +200,7 @@ def ItemDictBuilder(cursor, date_dict, alias_dict, item_sku):
                     item_dict[sku]['stores'][store_id] = qty
 
                 if sku == item_sku or item_sku == 'All':
-                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
+                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
 
             else :
                 item_dict[sku] = {}
@@ -210,7 +210,7 @@ def ItemDictBuilder(cursor, date_dict, alias_dict, item_sku):
                 item_dict[sku]['stores'] = {store_id:qty}
 
                 if sku == item_sku or item_sku == 'All' :
-                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
+                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
 
     #Build chart value list
     values=[]
@@ -228,7 +228,7 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     sku_list = []
     for order in cursor :
         # Sum Order Totals
-        payment_date = order['createDate']
+        order_date = order['orderDate']
 
         # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
@@ -266,7 +266,7 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
                 item_chart[sku_idx][2] += sales
                 item_chart[sku_idx][3] += qty
                 if sku == item_sku or item_sku == 'All':
-                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
+                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
 
             else :
                 row.append(sku)
@@ -276,7 +276,7 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
                 sku_list.append(sku)
                 item_chart.append(row)
                 if sku == item_sku or item_sku == 'All' :
-                    date_dict[payment_date.year][payment_date.month][payment_date.day]+= sales
+                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
 
     #Build chart value list
     values=[]
@@ -565,7 +565,7 @@ class SalesView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'createDate':{'$lte': end, '$gte':start}},
+        {'orderDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -641,7 +641,7 @@ class InventoryView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'createDate':{'$lte': end, '$gte':start}},
+        {'orderDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -771,7 +771,7 @@ class InventoryView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'createDate':{'$lte': end, '$gte':start}},
+        {'orderDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -879,7 +879,7 @@ class ProductView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'createDate':{'$lte': end, '$gte':start}},
+        {'orderDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -961,7 +961,7 @@ class ProductView(BaseView):
 
         range_search = mongo.db.orders.find(
             {'$and':[
-                {'createDate':{'$lt': end, '$gt':start}},
+                {'orderDate':{'$lt': end, '$gt':start}},
                 {'owner':email},
                 {'items.sku':{"$in":alias_list}}
                 ]})
@@ -1025,7 +1025,7 @@ class CustomerView(BaseView) :
         order_value_list = []
         #Query - get orders for current users in date range
         range_search = mongo.db.orders.find({'$and':[
-        {'createDate':{'$lte': end, '$gte':start}},
+        {'orderDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
         num_orders = range_search.count()
 
@@ -1164,7 +1164,7 @@ class ShipmentView(BaseView):
             order_dict[order_id] = {}
             od = order_dict[order_id]
 
-            od['paymentDate'] = order['createDate']
+            od['orderDate'] = order['orderDate']
             order_qty = 0
 
             if 'items' in order.keys():
@@ -1185,7 +1185,7 @@ class ShipmentView(BaseView):
             row.append(order_id)
             row.append(ship_dict[shipment]['name'])
             try:
-                order_payment_timestamp = order_dict[order_id]['paymentDate']
+                order_payment_timestamp = order_dict[order_id]['orderDate']
             except:
                 flash(str(order_id) +" Not able to include this order for some reason")
                 continue
