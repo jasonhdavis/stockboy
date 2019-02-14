@@ -626,7 +626,7 @@ class InventoryView(BaseView):
 
         formvalue = False
         start, end = DateFormHanlder(formvalue)
-        start = start - timedelta(days=15)
+        start = start - timedelta(days=90)
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
