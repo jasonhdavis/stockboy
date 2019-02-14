@@ -125,7 +125,6 @@ def AliasDictBuilder(cursor):
     return alias_dict
 
 
-
 def DiscountHandler():
 
     #if "Discount" in name :
@@ -566,7 +565,7 @@ class SalesView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'createDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -642,7 +641,7 @@ class InventoryView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'createDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -772,7 +771,7 @@ class InventoryView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'createDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -880,7 +879,7 @@ class ProductView(BaseView):
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
-        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'createDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
 
         item_sku = 'All'
@@ -962,7 +961,7 @@ class ProductView(BaseView):
 
         range_search = mongo.db.orders.find(
             {'$and':[
-                {'paymentDate':{'$lt': end, '$gt':start}},
+                {'createDate':{'$lt': end, '$gt':start}},
                 {'owner':email},
                 {'items.sku':{"$in":alias_list}}
                 ]})
@@ -1026,14 +1025,18 @@ class CustomerView(BaseView) :
         order_value_list = []
         #Query - get orders for current users in date range
         range_search = mongo.db.orders.find({'$and':[
-        {'paymentDate':{'$lte': end, '$gte':start}},
+        {'createDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
         num_orders = range_search.count()
 
         # Returns dictionary of orders, centered around customer details
         customer_dict = {}
         for order in range_search :
-            customer_id = order['customerId']
+            if 'customerId' in order.keys():
+                customer_id = order['customerId']
+
+            else :
+                customer_id = None
             if customer_id is None :
                 # Amazon orders do not have a customer ID
                 # [DONE] Create identifyable hash of the Street Address + Zip code
@@ -1161,10 +1164,12 @@ class ShipmentView(BaseView):
             order_dict[order_id] = {}
             od = order_dict[order_id]
 
-            od['paymentDate'] = order['paymentDate']
+            od['paymentDate'] = order['createDate']
             order_qty = 0
-            for item in order['items']:
-                order_qty += item['quantity']
+
+            if 'items' in order.keys():
+                for item in order['items']:
+                    order_qty += item['quantity']
 
             od['orderQty'] = order_qty
 
@@ -1179,8 +1184,11 @@ class ShipmentView(BaseView):
             order_id = int(shipment)
             row.append(order_id)
             row.append(ship_dict[shipment]['name'])
-            order_payment_timestamp = order_dict[order_id]['paymentDate']
-
+            try:
+                order_payment_timestamp = order_dict[order_id]['paymentDate']
+            except:
+                flash(str(order_id) +" Not able to include this order for some reason")
+                continue
             create_date = ship_dict[shipment]['createDate']
 
             handle_time = create_date - order_payment_timestamp
