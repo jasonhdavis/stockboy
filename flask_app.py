@@ -124,6 +124,8 @@ def AliasDictBuilder(cursor):
 
     return alias_dict
 
+
+
 def DiscountHandler():
 
     #if "Discount" in name :
@@ -227,7 +229,7 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     sku_list = []
     for order in cursor :
         # Sum Order Totals
-        payment_date = order['paymentDate']
+        payment_date = order['createDate']
 
         # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
@@ -626,7 +628,7 @@ class InventoryView(BaseView):
 
         formvalue = False
         start, end = DateFormHanlder(formvalue)
-        start = start - timedelta(days=45)
+        start = start - timedelta(days=15)
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
@@ -1020,14 +1022,14 @@ class CustomerView(BaseView) :
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
 
-        #Query - get orders for current users in date range
         email = current_user.email
+        order_value_list = []
+        #Query - get orders for current users in date range
         range_search = mongo.db.orders.find({'$and':[
         {'paymentDate':{'$lte': end, '$gte':start}},
         {'owner':email}]})
-
         num_orders = range_search.count()
-        order_value_list = []
+
         # Returns dictionary of orders, centered around customer details
         customer_dict = {}
         for order in range_search :
@@ -1038,7 +1040,9 @@ class CustomerView(BaseView) :
                 # Create a customer ID with 'AMZ' prefix
                 # Update MongoDB with both values
                 address = order['shipTo']['street1']+'::'+order['shipTo']['postalCode']
-                customer_id = base64.b64encode(hashlib.md5(address).digest())
+                customer_id = base64.b64encode(hashlib.md5(address).digest(),['+','-','=','&','#','@','%'])
+
+                #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id}, upsert=True)
 
             if customer_id not in customer_dict :
                 customer_dict.update({customer_id:{
@@ -1066,7 +1070,7 @@ class CustomerView(BaseView) :
 
         return self.render('admin/customer_index.html', customer_dict=customer_dict, top=top_bar, daterange=formvalue, startdate= start_date, enddate=end_date)
 
-    @expose('/<int:customer_id>',methods=('GET', 'POST'))
+    @expose('/<customer_id>',methods=('GET', 'POST'))
     def CustomerDetails(self, customer_id):
 
         # Query orders for customer ID
@@ -1076,12 +1080,32 @@ class CustomerView(BaseView) :
         alias_search = mongo.db.alias.find({'Owner':email})
         alias_dict = AliasDictBuilder(alias_search)
 
-        customer = mongo.db.customers.find_one({'customerId':customer_id})
-        customer_since = StripTimezone(customer['createDate'])
-        customer_since = datetime.strptime(customer_since,'%Y-%m-%dT%H:%M:%S')
+        try:
+            customer_id = int(customer_id)
+        except:
+            pass
 
         customer_search = mongo.db.orders.find({'customerId':customer_id})
+
         num_orders = customer_search.count()
+        customer_order_history = []
+        customer_dict = {
+            'customer_value' : 0
+        }
+        for order in customer_search :
+            customer_order_history.append(order['createDate'])
+            customer_dict['name'] = order['shipTo']['name']
+            customer_dict['street1'] = order['shipTo']['street1']
+            customer_dict['city'] = order['shipTo']['city']
+            customer_dict['state'] = order['shipTo']['state']
+            customer_dict['email'] = order['customerEmail']
+            customer_dict['customer_value'] += order['orderTotal']
+
+
+        customer_search.rewind()
+        customer_since = min(customer_order_history)
+        #customer_since = datetime.strptime(customer_since,'%Y-%m-%dT%H:%M:%S')
+
         item_sku= 'All'
 
         start = customer_since
@@ -1093,11 +1117,6 @@ class CustomerView(BaseView) :
         item_chart, values, shipped_to_amz = ItemChartBuilder(customer_search, date_dict, alias_dict, item_sku)
         top_bar = []
 
-        customer_value = 0
-
-        for row in item_chart :
-            customer_value += row[2]
-
         # Customer Value
 
         # Number of Orders
@@ -1105,13 +1124,13 @@ class CustomerView(BaseView) :
         # Frequency
         order_frequency = delta_range/num_orders
 
-        top_bar.append(customer_value)
+        top_bar.append(customer_dict['customer_value'])
         top_bar.append(num_orders)
         customer_since_date_str = str(customer_since.month) +"/"+ str(customer_since.day) +"/"+ str(customer_since.year)
         top_bar.append(customer_since_date_str)
         top_bar.append(order_frequency)
 
-        return self.render('admin/customer_details.html', top=top_bar, orders=item_chart, labels=labels, values=values)
+        return self.render('admin/customer_details.html', top=top_bar, orders=item_chart, labels=labels, values=values, customer_dict=customer_dict)
 
 class ShipmentView(BaseView):
     @expose('/',methods=('GET', 'POST'))
