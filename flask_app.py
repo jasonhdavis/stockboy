@@ -690,7 +690,7 @@ class InventoryView(BaseView):
                 total_value += item['Avg Cost']*(local_qty + amz_qty)
 
             else :
-                if "Socks" in item['Product Name'] :
+                if "Socks".encode('utf8') in item['Product Name'] :
                     ## Placeholder for inventory value
                     total_value += 1.25*int(local_qty+amz_qty)
                 else :
