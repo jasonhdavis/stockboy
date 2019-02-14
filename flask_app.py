@@ -1046,7 +1046,7 @@ class CustomerView(BaseView) :
                 customer_id = base64.urlsafe_b64encode(hashlib.md5(address.encode('utf8')).digest())
                 customer_id=customer_id.decode('ascii')
 
-                #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id}, upsert=True)
+                mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id}, upsert=True)
 
             if customer_id not in customer_dict :
                 customer_dict.update({customer_id:{
