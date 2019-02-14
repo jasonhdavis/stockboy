@@ -19,38 +19,12 @@
 
   <div class="row float-left">
     <div class="col-md-8 col-md-offset-2">
-      <div class="card">
-        <div class="card-header">Email Address</div>
-        <div class="card-body">{{current_user.email}}</div>
-      </div>
 
       <div class="card card-info">
-        <div class="card-header">Account Actions</div>
-        <div class="card-body"><a href="../change/">Change Email</a></div>
-        <div class="card-body"><a href="../change/">Change Password</a></div>
-        {% if current_user.email_confirmed %}
-          <div class="card-body">Email confirmed on: </div>
-        {% else %}
-        {% if not current_user.email_confirmed %}
-          <div class="card-body">Email has not been confirmed!</div>
-        {% endif %}
-          <div class="card-body"><a href="../confirm/">Resend Email Confirmation</a>(Broken)</div>
-          <div class="card-body"><strong>Features Placeholder</strong><ul>
-            <li>Ignore QTY shipped to Amazon?</li>
-            <li>Calculate Discounts per-item?</li>
-            <li>Timezone</li>
-            <li>Week Starts On</li>
-            <li>Ignore weekends for shipping speed</li>
-          </ul>
-
-
-      </div>
-
-      <div class="card card-info">
-        <div class="card-header">ShipStation API - <a href="https://ss6.shipstation.com/#/settings/api">(Get your API Key Here)</a></div>
+        <div class="card-header">ShipStation API </div>
         <form method="POST">
-
         <div class="card-body" id="ss-api-form">
+          <h2><a href="https://ss6.shipstation.com/#/settings/api">Get your API Key Here</a></h2>
           <label for="apiform-key">API Key</label>
         {{apiform.key(size=55, value=current_user.ss_key ) }}<br><br>
           <label for="apiform-secret">API Secret</label>
@@ -115,6 +89,31 @@
       </form>
   </div>
   </div>
+
+  <div class="card">
+    <div class="card-header">Email Address</div>
+    <div class="card-body">{{current_user.email}}</div>
+  </div>
+
+  <div class="card card-info">
+    <div class="card-header">Account Actions</div>
+    <div class="card-body"><a href="../change/">Change Password</a></div>
+    {% if current_user.email_confirmed %}
+    {% else %}
+    {% if not current_user.email_confirmed %}
+    {% endif %}
+      <div class="card-body"><strong>Features Placeholder</strong><ul>
+        <li>Ignore QTY shipped to Amazon?</li>
+        <li>Calculate Discounts per-item?</li>
+        <li>Timezone</li>
+        <li>Week Starts On</li>
+        <li>Ignore weekends for shipping speed</li>
+      </ul>
+
+
+  </div>
+
+
 
   </div>
 </div>

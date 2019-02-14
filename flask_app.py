@@ -75,7 +75,7 @@ def DateDictBuilder(start,end):
     y_keys = [str(start.year)]
     m_keys = [str(start.month)+"-"+str(start.year)]
 
-    for i in range(delta_range):
+    for i in range(delta_range+1):
         iter_date = start+timedelta(days=i)
         year = iter_date.year
         month = iter_date.month
@@ -470,6 +470,7 @@ class ProfileView(BaseView):
                     r = r+1
                     update_count+=1
                 flash('Imported '+ str(update_count) + ' Inventory Stock Values')
+
                 mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'inventory_updated':nice_now}})
             return redirect(url_for('import.UserProfile'))
 
@@ -497,7 +498,7 @@ class ProfileView(BaseView):
                     mongo.db.alias.update({'Alias':str(ws.cell_value(r,1))},row,upsert=True)
                     r+=1
                 flash('Imported ' + str(col_len-2) + ' Alias Records')
-                mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'alias_updated':nice_now}})
+                mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'alias_updated':now}})
             return redirect(url_for('import.UserProfile'))
 
         if fbaform.validate_on_submit() and fbaform.submit.data:
@@ -531,7 +532,7 @@ class ProfileView(BaseView):
 
                 lines+= 1
 
-            mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'fba_updated':nice_now}})
+            mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'fba_updated':now}})
             flash('Imported ' + str(lines) + ' FBA Records')
 
             return redirect(url_for('import.UserProfile'))
@@ -1131,7 +1132,7 @@ class ShipmentView(BaseView):
 
         ship_dict = ShipmentDictBuilder(start, end)
 
-        shipment_range_order_ids = ship_dict.keys()
+        shipment_range_order_ids = list(ship_dict.keys())
         order_cursor = mongo.db.orders.find({'orderId':{'$in':shipment_range_order_ids}})
 
         ## Order Dict Builder
@@ -1285,7 +1286,6 @@ admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_ty
 #admin.add_view(AmazonView(name="Amazon", endpoint='amazon', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(ProfileView(name='Settings & Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
-
 
 
 ## Sub Items - Not visible in menu
