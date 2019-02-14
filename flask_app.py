@@ -1043,7 +1043,7 @@ class CustomerView(BaseView) :
                 # Create a customer ID with 'AMZ' prefix
                 # Update MongoDB with both values
                 address = order['shipTo']['street1']+'::'+order['shipTo']['postalCode']
-                customer_id = base64.b64encode(hashlib.md5(address.encode('utf8')).digest())
+                customer_id = base64.b64encode(hashlib.md5(address.encode('utf8')).digest(),["-","/","+","=","&","$","#","@","*"])
                 customer_id=customer_id.decode('ascii')
 
                 #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id}, upsert=True)
