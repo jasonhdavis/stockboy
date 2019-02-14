@@ -355,8 +355,6 @@ class MongoUser(enginedb.Document, UserMixin):
     alias_updated = enginedb.DateTimeField()
     fba_updated = enginedb.DateTimeField()
 
-
-
 # Setup Flask-Security
 #user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 #security = Security(app, user_datastore)
@@ -1034,9 +1032,9 @@ class CustomerView(BaseView) :
         for order in range_search :
             if 'customerId' in order.keys():
                 customer_id = order['customerId']
-
             else :
                 customer_id = None
+
             if customer_id is None :
                 # Amazon orders do not have a customer ID
                 # [DONE] Create identifyable hash of the Street Address + Zip code
@@ -1046,7 +1044,7 @@ class CustomerView(BaseView) :
                 customer_id = base64.urlsafe_b64encode(hashlib.md5(address.encode('utf8')).digest())
                 customer_id=customer_id.decode('ascii')
 
-                mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id}, upsert=True)
+                mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id})
 
             if customer_id not in customer_dict :
                 customer_dict.update({customer_id:{
@@ -1097,7 +1095,7 @@ class CustomerView(BaseView) :
             'customer_value' : 0
         }
         for order in customer_search :
-            customer_order_history.append(order['createDate'])
+            customer_order_history.append(order['orderDate'])
             customer_dict['name'] = order['shipTo']['name']
             customer_dict['street1'] = order['shipTo']['street1']
             customer_dict['city'] = order['shipTo']['city']
