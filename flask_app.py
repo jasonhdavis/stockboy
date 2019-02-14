@@ -691,7 +691,7 @@ class InventoryView(BaseView):
                 total_value += item['Avg Cost']*(local_qty + amz_qty)
 
             else :
-                if "Socks".encode('utf8') in item['Product Name'] :
+                if "Socks" in item['Product Name'] :
                     ## Placeholder for inventory value
                     total_value += 1.25*int(local_qty+amz_qty)
                 else :
@@ -1044,6 +1044,7 @@ class CustomerView(BaseView) :
                 # Update MongoDB with both values
                 address = order['shipTo']['street1']+'::'+order['shipTo']['postalCode']
                 customer_id = base64.b64encode(hashlib.md5(address.encode('utf8')).digest())
+                customer_id.decode('ascii')
 
                 #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id}, upsert=True)
 
