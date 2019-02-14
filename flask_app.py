@@ -449,7 +449,7 @@ class ProfileView(BaseView):
                 update_count = 0
                 while r < col_len :
                     sku = str(ws.cell_value(r,1))
-                    name = str(ws.cell_value(r,2).encode('utf8'))
+                    name = ws.cell_value(r,2).encode('utf8').decode('ascii')
                     if sku == "":
                         #Shipstation merges name column vertically
                         # Leaving  blank sku cells below
