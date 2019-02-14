@@ -449,7 +449,7 @@ class ProfileView(BaseView):
                 update_count = 0
                 while r < col_len :
                     sku = str(ws.cell_value(r,1))
-                    name = ws.cell_value(r,2).encode('utf8').decode('ascii')
+                    name = ws.cell_value(r,2).encode('utf8')
                     if sku == "":
                         #Shipstation merges name column vertically
                         # Leaving  blank sku cells below
@@ -626,7 +626,7 @@ class InventoryView(BaseView):
 
         formvalue = False
         start, end = DateFormHanlder(formvalue)
-        start = start - timedelta(days=90)
+        start = start - timedelta(days=45)
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
