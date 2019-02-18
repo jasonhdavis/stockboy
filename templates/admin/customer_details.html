@@ -1,4 +1,4 @@
-{% extends 'admin/base.html' %}
+{% extends 'admin/master.html' %}
 {% block body %}
 {{ super() }}
 {% if current_user.is_authenticated %}
@@ -99,8 +99,9 @@
                 <tr>
                     <th class="th-sm">Sku</th>
                     <th class="th-sm">Name</th>
-                    <th class="th-sm">Sales</th>
                     <th class="th-sm">QTY</th>
+                    <th class="th-sm">Sales</th>
+
                 </tr>
             </thead>
             <tbody >
@@ -108,8 +109,9 @@
                 <tr>
                     <td>{{item[0]}}</td>
                     <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
-                    <td width="20%">${{item[2]}}</td>
-                    <td width="10%">{{item[3]}}</td>
+                    <td width="10%">{{ "{:,}".format(item[3]) }}</td>
+                    <td width="10%">${{ "{:,.2f}".format(item[2]) }}</td>
+
                 </tr>
                 {% endfor %}
             </tbody>

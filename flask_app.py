@@ -229,11 +229,12 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     for order in cursor :
         # Sum Order Totals
         order_date = order['orderDate']
-
+        amz_loc = ['24208 SAN MICHELE','900 PATROL','10240 OLD DOWD','705 BOULDER DR','6835 W BUCKEYE']
         # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
+
         ship_add = order['shipTo']['street1']
-        if ship_to.find('Amazon') >-1 or ship_add.find('24208 SAN MICHELE') >-1:
+        if ship_to.find('Amazon') >-1 or ship_to.find('GOLDEN STATE') >-1:
             for item in order['items'] :
                 sku = item['sku']
                 if sku == item_sku or item_sku == 'All':
@@ -568,6 +569,7 @@ class SalesView(BaseView):
 
         item_sku = 'All'
         item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
+
 
         top_bar = []
         sales_total = 0
@@ -1044,7 +1046,7 @@ class CustomerView(BaseView) :
                 customer_id = base64.urlsafe_b64encode(hashlib.md5(address.encode('utf8')).digest())
                 customer_id=customer_id.decode('ascii')
 
-                mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id})
+                #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id})
 
             if customer_id not in customer_dict :
                 customer_dict.update({customer_id:{
@@ -1270,9 +1272,6 @@ def serve_file_in_dir(path):
     request_file_dir = os.path.join(assets_file_dir,path)
 
     return send_from_directory(request_file_dir, filename)
-
-
-
 
     #amazon = mongo.db.orders.find({'shipTo':{'name':{'$regex':'.*Amazon.*'}}})
     #amazon_list = []

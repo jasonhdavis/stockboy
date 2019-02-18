@@ -1,4 +1,4 @@
-{% extends 'admin/base.html' %}
+{% extends 'admin/master.html' %}
 {% block body %}
 {{ super() }}
 {% if current_user.is_authenticated %}
@@ -22,13 +22,12 @@
           </ol>
 
           <div class="date-picker col-xs-3">
-            <form id ='daterangeform' action="{{url_for('product.ProductIndex')}}" method="post">
+            <form id ='daterangeform' action="{{url_for('shipments.index')}}" method="post">
               <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
                 <input autocomplete="off" class="form-control" type="text" name="daterange" >
                 <input type="submit" name="submit" id="date-submit" value="Go">
             </form>
             <script>
-              </div>
             $(function() {
               $('input[name="daterange"]').daterangepicker({
                 ranges: {

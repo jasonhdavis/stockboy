@@ -12,7 +12,7 @@
        {{ current_user.first_name }}
        {% else %}
        {{ current_user.email }}
-       {% endif %}                 
+       {% endif %}
    </span>
 </a>
 <ul class="dropdown-menu">
@@ -25,11 +25,9 @@
        {% else %}
        {{ current_user.email }}
        {% endif %}
-       - Web Developer
-       <small>Member since Nov. 2012</small>
    </p>
 </li>
-<!-- Menu Body -->
+<!--
 <li class="user-body">
   <div class="row">
     <div class="col-xs-4 text-center">
@@ -42,12 +40,12 @@
       <a href="#">Friends</a>
   </div>
 </div>
-<!-- /.row -->
+-->
 </li>
 <!-- Menu Footer-->
 <li class="user-footer">
   <div class="pull-left">
-    <a href="#" class="btn btn-default btn-flat">Profile</a>
+    <a href="{{ url_for('import.UserProfile') }}" class="btn btn-default btn-flat">Settings</a>
 </div>
 <div class="pull-right">
 <a href="{{ url_for('security.logout') }}" class="btn btn-default btn-flat">Sign out</a>

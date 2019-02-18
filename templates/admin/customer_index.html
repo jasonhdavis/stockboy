@@ -1,4 +1,4 @@
-{% extends 'admin/base.html' %}
+{% extends 'admin/master.html' %}
 {% block body %}
 {{ super() }}
 
@@ -9,6 +9,7 @@
 <section class="content" id="customer-index">
   <div class="row">
     <!-- Left col -->
+
     <section class="container">
         <section class="content-header">
                 <h1>Customer Loyalty</h1>
@@ -18,8 +19,37 @@
               <li class="active">Customers</li>
           </ol>
 
+            <div class="date-picker col-xs-3">
+              <form id ='daterangeform' action="{{url_for('customers.CustomerIndex')}}" method="post">
+                <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
+                  <input autocomplete="off" class="form-control" type="text" name="daterange" >
+                  <input type="submit" name="submit" id="date-submit" value="Go">
+              </form>
+              <script>
+              $(function() {
+                $('input[name="daterange"]').daterangepicker({
+                  ranges: {
+                  'Today': [moment(), moment()],
+                  'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                  'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                  'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                  'This Month': [moment().startOf('month'), moment().endOf('month')],
+                  'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+              },
+                  "alwaysShowCalendars": true,
+                  "autoApply": true,
+                  "startDate": "{{startdate}}",
+                  "endDate": "{{enddate}}"
+              }, function(start, end, label) {
+                $('#daterangeform submit').click()
+              });
+              });
+              </script>
+          </div>
 
         </section>
+        <div class="col-lg-12">
+
         <section class="content">
           <!-- Small boxes (Stat box) -->
           <div class="row">
@@ -106,8 +136,8 @@
                     <td>{{ customer_dict[customer_id]['email'] }}</td>
                     <td>{{ customer_dict[customer_id]['city'] }}</td>
                     <td>{{ customer_dict[customer_id]['state'] }}</td>
-                    <td>{{ customer_dict[customer_id]['num_orders'] }}</td>
-                    <td>{{ customer_dict[customer_id]['customer_value'] }}</td>
+                    <td>{{ "{:,}".format(customer_dict[customer_id]['num_orders']) }}</td>
+                    <td>${{ "{:,.2f}".format(customer_dict[customer_id]['customer_value']) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -119,7 +149,7 @@
 
   </div>
   <!-- /.row (main row) -->
-
+</div>
 </section>
 <!-- /.content -->
 {% else %}
