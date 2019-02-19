@@ -56,6 +56,8 @@ login_manager.login_view = 'login'
 now = datetime.now()
 today = datetime(now.year, now.month, now.day)
 
+
+
 ######################################
 ############# FUNCTIONS ##############
 ######################################
@@ -229,12 +231,17 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     for order in cursor :
         # Sum Order Totals
         order_date = order['orderDate']
-        amz_loc = ['24208 SAN MICHELE','900 PATROL','10240 OLD DOWD','705 BOULDER DR','6835 W BUCKEYE']
+        amz_loc = ['24208 SAN MICHELE RD','900 PATROL RD','10240 OLD DOWD RD','705 BOULDER DR','6835 W BUCKEYE RD']
         # Count ship to Amz Quantity to avoid
         ship_to = order['shipTo']['name']
 
-        ship_add = order['shipTo']['street1']
-        if ship_to.find('Amazon') >-1 or ship_to.find('GOLDEN STATE') >-1:
+        ship_add = order['shipTo']['street1'].upper()
+        #flash(ship_add)
+
+        #.find('AMAZON') >-1 or ship_to.find('GOLDEN STATE') >-1:
+        ship_to = order['shipTo']['name'].upper()
+
+        if ship_add in amz_loc :
             for item in order['items'] :
                 sku = item['sku']
                 if sku == item_sku or item_sku == 'All':
@@ -507,7 +514,7 @@ class ProfileView(BaseView):
             save_path = os.path.join(app.root_path,'uploads', filename)
             f.save(save_path)
 
-            fba = csv.DictReader(open(save_path, 'rt', encoding='ISO-8859-1'), delimiter='\t')
+            fba = csv.DictReader(open(save_path, 'rt'), delimiter='\t')
             text = []
             lines = 0
             mongo.db.fba.remove({"Owner":current_user.email})
@@ -624,7 +631,7 @@ class InventoryView(BaseView):
         qty_total = 0
         total_value = 0
         sku_count = 0
-
+        email = current_user.email
         formvalue = False
         start, end = DateFormHanlder(formvalue)
         start = start - timedelta(days=15)
@@ -633,7 +640,6 @@ class InventoryView(BaseView):
         delta_range = (end - start).days
         date_dict, labels = DateDictBuilder(start, end)
 
-        email = current_user.email
 
         #Build Alias Dictionary - all owner alias values
         alias_search = mongo.db.alias.find({'Owner':email})
@@ -690,17 +696,17 @@ class InventoryView(BaseView):
             if item['Avg Cost'] > 0 :
                 total_value += item['Avg Cost']*(local_qty + amz_qty)
 
-            else :
-                if "Socks" in item['Product Name'] :
+            #else :
+                #if "Socks" in item['Product Name'] :
                     ## Placeholder for inventory value
-                    total_value += 1.25*int(local_qty+amz_qty)
-                else :
+                #    total_value += 1.25*int(local_qty+amz_qty)
+                #else :
                     ## Placeholder for inventory value
-                    total_value += .75*int(local_qty+amz_qty)
+                #    total_value += .75*int(local_qty+amz_qty)
 
 
             row.append(sku)
-            row.append(item['Product Name'])
+            row.append(item['Product Name'].decode('utf8'))
             row.append(int(item['Stock']))
             if matched_asin :
                 row.append(item_amz_warehouse)
@@ -812,16 +818,17 @@ class InventoryView(BaseView):
             if item['Avg Cost'] > 0 :
                 total_value += item['Avg Cost'] * amz_qty
             else :
-                if "Socks" in item['Product Name'] :
+                total_value += 0
+                #if "Socks" in item['Product Name'] :
                     ## Placeholder for inventory value
-                    total_value += 1.25*int(local_qty+amz_qty)
-                else :
+                #    total_value += 1.25*int(local_qty+amz_qty)
+                #else :
                     ## Placeholder for inventory value
-                    total_value += .75*int(local_qty+amz_qty)
+                #    total_value += .75*int(local_qty+amz_qty)
 
 
             row.append(sku)
-            row.append(item['Product Name'])
+            row.append(item['Product Name'].decode('utf8').strip())
             if matched_asin :
                 row.append(amz_qty)
                 row.append(fba_dict[matched_asin]['afn-inbound-shipped-quantity'])
@@ -842,6 +849,7 @@ class InventoryView(BaseView):
                 inventory_days = int(local_qty+amz_qty) / burn
 
             row.append(inventory_days)
+
             items_chart.append(row)
 
 
@@ -901,7 +909,6 @@ class ProductView(BaseView):
             if row[2] < 0:
                 continue
             labels.append(row[1])
-
             qty_total += row[3]
             sales_values.append(row[2])
             qty_values.append(row[3])
