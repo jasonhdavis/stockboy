@@ -229,6 +229,8 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     sku_list = []
     for order in cursor :
         # Sum Order Totals
+        if order['orderStatus'] == 'cancelled':
+            continue
         order_date = order['orderDate']
         amz_loc = ['24208 SAN MICHELE RD','900 PATROL RD','10240 OLD DOWD RD','705 BOULDER DR','6835 W BUCKEYE RD']
         # Count ship to Amz Quantity to avoid
