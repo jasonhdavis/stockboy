@@ -126,7 +126,6 @@ def AliasDictBuilder(cursor):
 
     return alias_dict
 
-
 def DiscountHandler():
 
     #if "Discount" in name :
@@ -253,6 +252,7 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
         # Join on product Alias
         for item in order['items']:
             row = []
+
             sku = item['sku']
 
             if sku in alias_dict :
@@ -326,25 +326,36 @@ def ShipmentDictBuilder(start, end) :
 
     ship_dict = {}
     for item in cursor :
-        order_id = item['orderId']
-        if order_id not in ship_dict :
-            ship_dict[order_id] = {}
-            sd = ship_dict[order_id]
-            sd['shipmentCost'] = item['shipmentCost']
-            sd['name'] = item['shipTo']['name']
-            sd['createDate'] = item['createDate']
-            sd['carrierCode'] = item['carrierCode']
-            sd['trackingNumber'] = item['trackingNumber']
-        else :
-            ## Spilt shipment / multiple shipments for one order
-            sd = ship_dict[order_id]
-            sd['shipmentCost'] += item['shipmentCost']
-            if sd['createDate'] < item['createDate'] :
-                sd['createDate'] = item['createDate']
-                sd['carrierCode'] = item['carrierCode']
-                sd['trackingNumber'] = item['trackingNumber']
+        shipment_id = item['shipmentId']
+
+        ship_dict[shipment_id] = {}
+        sd = ship_dict[shipment_id]
+        sd['orderId'] = item['orderId']
+        sd['shipmentCost'] = item['shipmentCost']
+        sd['name'] = item['shipTo']['name']
+        sd['createDate'] = item['createDate']
+        sd['carrierCode'] = item['carrierCode']
+        sd['trackingNumber'] = item['trackingNumber']
+        sd['warehouseId'] = item['warehouseId']
+        sd['userId'] = item['userId']
+
+
 
     return ship_dict
+
+def ShipperDictBuilder() :
+    shipper_dict = {}
+
+    cursor = mongo.db.users.find()
+
+    for shipper in cursor :
+        shipper_dict[shipper['userId']] = {}
+        sd = shipper_dict[shipper['userId']]
+        sd['name']=shipper['name']
+        sd['owner']=shipper['owner']
+        sd['username']=shipper['userName']
+
+    return shipper_dict
 
 class MongoRole(enginedb.Document, RoleMixin):
     name = enginedb.StringField(max_length=80, unique=True)
@@ -706,8 +717,10 @@ class InventoryView(BaseView):
 
 
             row.append(sku)
-            row.append(item['Product Name'].decode('utf8'))
+            row.append(item['Product Name'])
             row.append(int(item['Stock']))
+            row.append(item['Avg Cost'])
+
             if matched_asin :
                 row.append(item_amz_warehouse)
                 row.append(item_amz_inbound)
@@ -944,6 +957,25 @@ class ProductView(BaseView):
         #product_details['created'] = details['createDate']
         #product_details['category'] = details['productCategory']['name']
         product_details['sku'] = item_sku
+
+        if 'name' in details['productCategory']:
+            product_details['category'] = details['productCategory']['name']
+
+        product_details['createDate'] = details['createDate']
+
+        if 'sb_product_cost' in details :
+            product_details['sb_product_cost'] = details['sb_product_cost']
+
+        else :
+            product_details['sb_product_cost'] = 0
+
+        if 'sb_default_cost' in details :
+            pass
+
+        if 'sb_marketplace_costs' in details :
+            pass
+
+
         #inv_details = mongo.db.inventory.find_one({'SKU':item_sku})
         #product_details['stock'] = inv_details['Stock']
         #product_details['avg cost'] = inv_details['Avg Cost']
@@ -1162,7 +1194,10 @@ class ShipmentView(BaseView):
 
         ship_dict = ShipmentDictBuilder(start, end)
 
-        shipment_range_order_ids = list(ship_dict.keys())
+        shipment_range_order_ids = []
+        for shipment in ship_dict :
+            shipment_range_order_ids.append(ship_dict[shipment]['orderId'])
+
         order_cursor = mongo.db.orders.find({'orderId':{'$in':shipment_range_order_ids}})
 
         ## Order Dict Builder
@@ -1187,20 +1222,29 @@ class ShipmentView(BaseView):
         shipment_chart = []
         shipment_costs = []
         qty_total = 0
+        shipper_dict = ShipperDictBuilder()
+
         for shipment in ship_dict :
             row = []
-            order_id = int(shipment)
-            row.append(order_id)
+            shipment_id = shipment
+
+            shipper_id = ship_dict[shipment]['userId']
+            shipper_name = shipper_dict[shipper_id]['name']
+            row.append(shipper_name)
+
+            order_id = ship_dict[shipment_id]['orderId']
+            row.append(shipment_id)
+
             row.append(ship_dict[shipment]['name'])
             try:
-                order_payment_timestamp = order_dict[order_id]['orderDate']
+                order_date = order_dict[order_id]['orderDate']
             except:
                 flash(str(order_id) +" Not able to include this order for some reason")
                 continue
             create_date = ship_dict[shipment]['createDate']
 
-            handle_time = create_date - order_payment_timestamp
-
+            handle_time = create_date - order_date
+            # handle_time > 0 :
             days = handle_time.days
             seconds = handle_time.total_seconds()
             hours = seconds // 3600
@@ -1208,9 +1252,8 @@ class ShipmentView(BaseView):
             minutes = (seconds % 3600) // 60
             seconds = seconds % 60
             handle_time_string = '{} days, {} hours'.format(days, hours)
+
             row.append(handle_time_string)
-            if handle_time.total_seconds() != 0:
-                handle_times.append(handle_time)
 
             if 'actual_delivery_date' in ship_dict[shipment].keys() :
                 shipping_time = ship_dict[shipment]['actual_delivery_date'] - create_date
@@ -1227,6 +1270,7 @@ class ShipmentView(BaseView):
             row.append(ship_dict[shipment]['shipmentCost'])
             shipment_costs.append(ship_dict[shipment]['shipmentCost'])
 
+            row.append(shipper_id)
             shipment_count += 1
             shipment_chart.append(row)
 
@@ -1243,18 +1287,28 @@ class ShipmentView(BaseView):
         top_bar = []
         top_bar.append(shipment_count)
 
-        average_handletime = sum(handle_times, timedelta(0)) / len(handle_times)
-        #average_handletime = average_handletime.hours
-        #days = handle_time.days
-        seconds = average_handletime.total_seconds()
-        hours = int(seconds) / 3600
-        hours = hours - (days*24)
-        #minutes = (seconds % 3600) // 60
-        #seconds = seconds % 60
-        avg_handle_time_string = '{} days, {} hours'.format(days, hours)
+        if len(handle_times) > 0:
+            average_handletime = sum(handle_times, timedelta(0)) / len(handle_times)
+            #average_handletime = average_handletime.hours
+            #days = handle_time.days
+            seconds = average_handletime.total_seconds()
+            hours = int(seconds) / 3600
+            hours = hours - (days*24)
+            #minutes = (seconds % 3600) // 60
+            #seconds = seconds % 60
+            avg_handle_time_string = '{} d, {} h'.format(days, hours)
+        else :
+            average_handletime = 0
+            avg_handle_time_string = 'handle time'
+
 
         top_bar.append(avg_handle_time_string)
-        average_cost = sum(shipment_costs)/len(shipment_costs)
+        if len(shipment_costs) > 0 :
+            average_cost = sum(shipment_costs)/len(shipment_costs)
+
+        else :
+            average_cost = 0
+
         top_bar.append(average_cost)
         top_bar.append(qty_total/delta_range)
 

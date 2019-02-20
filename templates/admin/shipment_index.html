@@ -87,9 +87,9 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>${{top[2]}}</h3>
+              <h3>${{"{:,.2f}".format(top[2])}}</h3>
 
-              <p>Avg Cost</p>
+              <p>Avg Shipping Cost</p>
           </div>
           <div class="icon">
               <i class="ion ion-filing"></i>
@@ -102,7 +102,7 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{top[3]}}</h3>
+              <h3>{{"{:,.1f}".format(top[3])}}</h3>
 
               <p>Qty Shipped Per Day</p>
           </div>
@@ -122,8 +122,9 @@
           <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
             <thead>
                 <tr>
-                  <th class="th-sm">Status</th>
-                    <th class="th-sm">Order ID</th>
+                    <th class="th-sm">Shipper</th>
+                    <th class="th-sm">Shipment ID</th>
+                    <th class="th-sm">Status</th>
                     <th class="th-sm">Ship To</th>
                     <th class="th-sm">Handle Time</th>
                     <th class="th-sm">Shipping Time</th>
@@ -134,13 +135,15 @@
             <tbody >
               {% for item in orders %}
                 <tr>
+                    <td width="10%"><a href="../shipments/{{item[7]}}">{{item[0]}}</a></td>
+                    <td width="15%">{{item[1]}}</td>
                     <td width="3%">--</td>
-                    <td width="10%"><a href="../shipments/{{item[0]}}">{{item[0]}}</a></td>
-                    <td width="30%">{{item[1]}}</td>
                     <td width="20%">{{item[2]}}</td>
                     <td width="10%">{{item[3]}}</td>
                     <td width="10%">{{item[4]}}</td>
-                    <td width="10%">${{item[5]}}</td>
+                    <td width="10%">{{item[5]}}</td>
+                    <td width="10%">${{item[6]}}</td>
+
                 </tr>
                 {% endfor %}
             </tbody>
