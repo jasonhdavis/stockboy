@@ -329,6 +329,7 @@ class StockBoy() :
             avg_burn = round(avg_burn,2)
         else :
             avg_burn = 0
+
         self.results['top_bar'] = {
             'total_qty': total_qty,
             'total_sales': total_sales,
@@ -797,7 +798,16 @@ class DashboardView(AdminIndexView):
 
 
         results = sb.results
+        results['top_bar']=[]
 
+        results['top_bar'][0]['name'] =
+        results['top_bar'][0]['value']
+        results['top_bar'][1]['name']
+        results['top_bar'][1]['value']
+        results['top_bar'][2]['name']
+        results['top_bar'][2]['value']
+        results['top_bar'][3]['name']
+        results['top_bar'][3]['value']
 
         return self.render('admin/index.html', results=results)
 
