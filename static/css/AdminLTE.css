@@ -5558,8 +5558,6 @@ section.sidebar {
 }
 
 .content-header h1 {
-	display: block;
-	clear: left;
 }
 
 /* @group DatePicker */
@@ -5571,10 +5569,8 @@ div.daterangepicker  {
 }
 
 .content-header div.date-picker {
-	width: 35rem;
-	float: left;
-	padding-bottom: 2em;
-
+	float: right;
+	margin-top: -5rem;
 }
 
 .content-header div.date-picker input {
@@ -5585,7 +5581,7 @@ div.daterangepicker  {
 
 .content-header .date-picker input#date-submit, button {
 	float: right;
-	 	width: 25%;
+	 width: 25%;
 	height: 3.5rem;
 	margin-left: 2%;
 	margin-top: 0;
@@ -5678,11 +5674,11 @@ button.bg-success:focus {
 a.bg-info:hover, a.bg-info:focus,
 button.bg-info:hover,
 button.bg-info:focus {
-  background-color: #217dbb !important;
+  background-color: rgba(33,125,187,0.9881037);
 }
 
 .bg-warning {
-  background-color: rgba(243,156,18,.85)!important;
+  background-color: rgba(254,167,112,1);
     color: #fff;
 
 }

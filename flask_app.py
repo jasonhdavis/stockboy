@@ -4,11 +4,13 @@
 import os
 import time
 import csv
+import sys
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
 from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory
 from flask_mongoengine import MongoEngine
+from flask_mongoengine.wtf import model_form
 from flask_security import Security, \
     UserMixin, RoleMixin, login_required, current_user, datastore, MongoEngineUserDatastore
 from flask_security.utils import encrypt_password
@@ -29,12 +31,13 @@ from werkzeug.utils import secure_filename
 from werkzeug.datastructures import CombinedMultiDict
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
-
+import random
 from flask_login import LoginManager
 
 
 import xlrd
 
+env_version = sys.version_info
 
 
 # Create Fldask application
@@ -58,43 +61,484 @@ today = datetime(now.year, now.month, now.day)
 
 
 
+
 ######################################
 ############# FUNCTIONS ##############
 ######################################
+def StripMicroseconds(datestring) :
+    output = str(datestring).split('.')
+    output = output[0]
+    return output
 
+
+class StockBoy() :
+
+    def __init__(self):
+        email = current_user.email
+
+        self.results = {
+        'email':current_user.email
+        }
+
+        #RUN INIT BUILDERS
+        self.AliasDictBuilder()
+        self.StoreDictBuilder()
+        self.ShipperDictBuilder()
+        self.ProductDictBuilder()
+
+    def DateFormController(self, formvalue) :
+        start, end = DateFormHanlder(formvalue)
+        start = start.replace(hour=0, minute=01)
+        end = end.replace(hour=23, minute=59)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+
+        self.DateDictBuilder(start, end)
+
+        self.results['formavlue'] = formvalue
+        self.results['start'] = start
+        self.results['end'] = end
+        self.results['start_date'] = start_date
+        self.results['end_date'] = end_date
+        self.results['delta_range'] = delta_range+1
+
+##############################
+###### INIT BUILDERS #########
+#############################
+    def StoreDictBuilder(self):
+        store_dict = {}
+
+        cursor = mongo.db.stores.find({
+        'owner':self.results['email']
+        })
+
+        for store in cursor :
+            store_id = store['storeId']
+            store_dict[store_id] = store
+
+        self.results['store_dict'] = store_dict
+    def ShipperDictBuilder(self) :
+        shipper_dict = {}
+
+        cursor = mongo.db.users.find()
+
+        for shipper in cursor :
+            shipper_dict[shipper['userId']] = {}
+            sd = shipper_dict[shipper['userId']]
+            sd['name']=shipper['name']
+            sd['owner']=shipper['owner']
+            sd['username']=shipper['userName']
+
+        self.results['shipper_dict'] = shipper_dict
+    def AliasDictBuilder(self):
+        ## Alias Dictionary can be built based on context
+        ## For example, a single sku or all Owner Alias, etc
+        alias_search = mongo.db.alias.find({'Owner':self.results['email']})
+
+        alias_dict = {}
+        for alias in alias_search :
+            alias_dict[alias['Alias']] = alias['Product SKU']
+
+        self.results['alias_dict']=alias_dict
+
+########################################
+###### PRIMARY REPORT BUILDERS #########
+########################################
+    def ReportDictBuilder(self, order_cursor):
+
+        ### Define a number of outputs that come from iterating through orders
+        ### Create all possible dictionaries / outputs at once with a single loop of orders
+
+        #### OUTPUT ########
+        ### TOTAL SALES DICTS ######
+        category_sales_dict = {}
+        store_sales_dict = {}
+        sku_sales_dict = {}
+        customer_sales_dict = {}
+        ordered_together_dict = {}
+
+        ##### BY DAY DICTS ######
+        sales_by_day_dict = self.results['date_dict']
+        qty_by_day_dict = self.results['date_dict']
+        fba_qty_by_day_dict = self.results['date_dict']
+
+        ## Top Bar / Top level metrics
+        total_qty = 0
+        total_sales = 0
+        shipped_to_amz = 0
+
+        ### Supporting Variables
+        #alias_dict
+        ##product_dict
+
+        delta_range = self.results['delta_range']
+
+        store_dict = self.results['store_dict']
+
+        sku_category_dict = self.results['sku_category_dict']
+
+
+        ## Sku
+        #### Name
+        #### imageUrl
+        #### quantity_sold
+        #### unit price
+        #### 'stores' [store_id] ($,qty)
+        #### Inventory Available
+        #### Product Category
+        ####
+
+        for order in order_cursor :
+            store_id = order['advancedOptions']['storeId']
+            customer_id = order['customerId']
+            warehouse_id = order['advancedOptions']['warehouseId']
+            create_date = order['createDate']
+            order_id = order['orderId']
+            order_status = order['orderStatus']
+            if order_status == 'cancelled':
+                continue
+            order_total = order['orderTotal']
+            order_qty = 0
+            shipping_amt = order['shippingAmount']
+            street1 = order['shipTo']['street1']
+            name = order['shipTo']['name']
+            city = order['shipTo']['city']
+            state = order['shipTo']['state']
+            email = order['customerEmail']
+
+            ordered_together = []
+
+            amz_transfer = self.AMZCheck(street1)
+
+            for item in order['items'] :
+
+                item_sku = self.SKUFlatten(item['sku'])
+                ordered_together.append(item_sku)
+
+                price = item['unitPrice']
+                qty = item['quantity']
+
+                img = item['imageUrl']
+                name = item['name']
+                if item_sku in sku_category_dict:
+                    category_id = sku_category_dict[item_sku][0]
+                    category_name = sku_category_dict[item_sku][1]
+
+
+                ## If sent to Amazon, avoid qty double count
+                if amz_transfer :
+                    fba_qty_by_day_dict[create_date.year][create_date.month][create_date.day] += qty
+                    shipped_to_amz+= qty
+                    continue
+
+                ## Amazon orders have exited, add to total qty count which gets added to topbar total qty
+                order_qty += qty
+
+                ### Items not transfered to Amazon get counted in existing record
+                if item_sku in sku_sales_dict :
+                    ssd = sku_sales_dict[item_sku]
+                    ssd['sku'] = item_sku
+                    ssd['sales'] += price*qty
+                    ssd['qty']+= qty
+                    ssd['burn'] = float(ssd['qty'])/float(delta_range)
+
+                ### Else Create a new record
+                else :
+                    sku_sales_dict[item_sku] = {
+                    'sku': item_sku,
+                    'name': name,
+                    'img': img,
+                    'sales': price*qty,
+                    'qty': qty,
+                    'burn': qty/delta_range
+                    }
+
+                #### Category Sales Dict Input
+                if category_id in category_sales_dict :
+                    csd = category_sales_dict[category_id]
+                    csd['sales'] += price*qty
+                    csd['qty'] += qty
+                else :
+                    category_sales_dict[category_id] = {
+                    'name' : category_name,
+                    'sales': price*qty,
+                    'qty': qty
+                    }
+
+
+            if len(ordered_together) > 1 :
+                ordered_together_dict[order_id] = ordered_together
+
+
+            #### SALES & QTY BY DAY #####
+            sales_by_day_dict[create_date.year][create_date.month][create_date.day] += order_total
+            qty_by_day_dict[create_date.year][create_date.month][create_date.day] += order_qty
+            total_qty += order_qty
+            total_sales += order_total
+
+            #### STORE / MARKETPLACE CHANNEL SALES ####
+            if store_id in store_sales_dict :
+                store_sales_dict[store_id]['sales']+= order_total
+                store_sales_dict[store_id]['qty']+= order_qty
+            else :
+                store_sales_dict[store_id] = {
+                'name': store_dict[store_id]['storeName'],
+                'sales': order_total,
+                'qty': order_qty
+                }
+
+
+            #### CUSTOMER SALES DETAILS ######
+            if customer_id in customer_sales_dict :
+                ## Customer ID coorilates with customer email
+                customer_sales_dict[customerId]['sales'] += order_total
+                customer_sales_dict[customerId]['qty' ]+= order_qty
+
+
+            elif customer_id in vars() :
+                customer_sales_dict[customerId]={
+                'name': name,
+                'sales': order_total,
+                'qty': order_qty,
+                'street1': street1,
+                'city': city,
+                'state': state,
+                'email': email
+                }
+
+
+        #### STORE RESULTS ####
+        # By ID results
+        self.results['category_sales_dict'] = category_sales_dict
+        self.results['store_sales_dict'] = store_sales_dict
+        self.results['sku_sales_dict'] = sku_sales_dict
+        self.results['customer_sales_dict'] = customer_sales_dict
+
+        # By Day results
+        self.results['sales_by_day_dict'] = sales_by_day_dict
+        self.results['qty_by_day_dict'] = qty_by_day_dict
+        self.results['fba_qty_by_day_dict'] = fba_qty_by_day_dict
+
+
+        #### Calculate Average Burn Rate ####
+        #### Take each burn rate and get an average ###
+        ### Multiply by delta_range to get sold per sku per time period ###
+
+        burn_rates = []
+        for sku in sku_sales_dict :
+            burn_rates.append(sku_sales_dict[sku]['burn'])
+
+        if len(burn_rates) > 1:
+            avg_burn = (sum(burn_rates)/len(burn_rates))*delta_range
+            avg_burn = round(avg_burn,2)
+        else :
+            avg_burn = 0
+        self.results['top_bar'] = {
+            'total_qty': total_qty,
+            'total_sales': total_sales,
+            'shipped_to_amz':shipped_to_amz,
+            'avg_burn':  avg_burn
+            }
+
+##############################
+#### DICTIONARY BUILDERS #####
+##############################
+
+    def ProductDictBuilder(self):
+        product_dict = {}
+
+        range_search = mongo.db.products.find({'owner':self.results['email']})
+
+        for product in range_search :
+            product_id = product['productId']
+            product_dict[product_id]=product
+
+        self.results['product_dict'] = product_dict
+
+        sku_category_dict = {}
+
+        product_dict = self.results['product_dict']
+
+
+
+        #### AT this point, you should add in inventory values from import
+        ### Determine if there is one product listing per alias
+        ###
+
+        for product in product_dict.values() :
+            sku = product['sku']
+            id = product['productId']
+
+            if product['productCategory'] :
+                cat_id = product_dict[id]['productCategory']['categoryId']
+                cat_name = product_dict[id]['productCategory']['name']
+            else :
+                cat_id = 999
+                cat_name = 'uncategorized'
+
+            sku_category_dict[sku] = (cat_id, cat_name)
+
+        self.results['sku_category_dict'] = sku_category_dict
+
+    def CustomerDictBuilder(self):
+        pass
+
+    def DateDictBuilder(self, start,end):
+        ## Build date range dictionary
+        ## Documentation at: https://gist.github.com/jasonhdavis/73664baf24bdb595ffe0b66d01703c01
+        date_dict={}
+        labels = []
+        date_dict.update({start.year:{start.month:{start.day: 0}}})
+        delta_range = (end - start).days
+
+        y_keys = [str(start.year)]
+        m_keys = [str(start.month)+"-"+str(start.year)]
+
+        for i in range(delta_range+1):
+            iter_date = start+timedelta(days=i)
+            year = iter_date.year
+            month = iter_date.month
+            day = iter_date.day
+            labels.append(iter_date.strftime('%m-%d'))
+            if str(year) in y_keys and str(month)+"-"+str(year) in m_keys :
+                date_dict[year][month][day] = 0
+            elif str(year) in y_keys :
+                date_dict[year].update({month:{day:0}})
+                m_keys.append(str(month)+"-"+str(year))
+            else :
+                date_dict.update({year:{month:{day:0}}})
+                y_keys.append(str(year))
+                m_keys.append(str(month)+"-"+str(year))
+
+
+        self.results['date_dict'] = date_dict
+        self.results['date_range_labels'] = labels
+
+    def FBADictBuilder() :
+        cursor = mongo.db.fba.find({'Owner':current_user.email})
+        fba_dict = {}
+        for item in cursor :
+            asin = item['asin']
+
+            if asin not in fba_dict :
+                fba_dict[asin] = {}
+
+                fba_dict[asin]['afn-fulfillable-quantity'] = 0
+                fba_dict[asin]['afn-warehouse-quantity'] = 0
+                fba_dict[asin]['afn-total-quantity'] = 0
+                fba_dict[asin]['afn-inbound-shipped-quantity'] = 0
+                fba_dict[asin]['afn-reserved-quantity'] = 0
+
+            fba_dict[asin]['afn-fulfillable-quantity'] += int(item['afn-fulfillable-quantity'])
+            fba_dict[asin]['afn-warehouse-quantity'] += int(item['afn-warehouse-quantity'])
+            fba_dict[asin]['afn-total-quantity'] += int(item['afn-total-quantity'])
+            fba_dict[asin]['afn-inbound-shipped-quantity'] += int(item['afn-inbound-shipped-quantity'])
+            fba_dict[asin]['afn-reserved-quantity'] += int(item['afn-reserved-quantity'])
+
+        return fba_dict
+
+    def ShipmentDictBuilder(start, end) :
+        cursor = mongo.db.shipments.find({'$and':[
+        {'createDate':{'$lte': end, '$gte':start}},
+        {'owner':current_user.email}]})
+
+        ship_dict = {}
+        for item in cursor :
+            shipment_id = item['shipmentId']
+
+            ship_dict[shipment_id] = {}
+            sd = ship_dict[shipment_id]
+            sd['orderId'] = item['orderId']
+            sd['shipmentCost'] = item['shipmentCost']
+            sd['name'] = item['shipTo']['name']
+            sd['createDate'] = item['createDate']
+            sd['carrierCode'] = item['carrierCode']
+            sd['trackingNumber'] = item['trackingNumber']
+            sd['warehouseId'] = item['warehouseId']
+            sd['userId'] = item['userId']
+
+
+
+        return ship_dict
+
+    def ChartValueBuilder(date_dict):
+        values=[]
+
+        for year in date_dict.values() :
+            for month in year.values() :
+              for day in month.values() :
+                  values.append(day)
+
+        self.loading['values'] = values
+
+
+    #############################
+    ######## UTILITIES ##########
+    #############################
+
+    def SKUFlatten (self, sku):
+        alias_dict = self.results['alias_dict']
+
+        if sku in alias_dict:
+            sku = alias_dict[sku]
+
+        if not sku :
+            sku = 'sb-'+str(random.randint(123456,234567))
+
+        return sku
+    def AMZCheck(self, street1) :
+        amz_loc = ['24208 SAN MICHELE RD','900 PATROL RD','10240 OLD DOWD RD','705 BOULDER DR','6835 W BUCKEYE RD']
+
+        ship_add = street1.upper()
+
+        if ship_add in amz_loc :
+            amz_transfer = True
+        else :
+            amz_transfer = False
+
+        return amz_transfer
+
+    #### To build
+        def TableBuilder():
+            pass
+
+        def DiscountHandler():
+
+            #if "Discount" in name :
+                #continue
+
+            ## Discount Handler ##
+
+            #discount = 0
+            #discount_percent = False
+
+            #for item in l['items']:
+            #    iter_sku = item['sku']
+            #    if 'Discount' in item['name'] :
+            #        discount = item['unitPrice']
+
+            #    if iter_sku not in alias_list :
+            #        continue
+            #if discount != 0 :
+            #    if discount < 0:
+            #        discount = discount * -1
+            #    gross = discount+order_total
+            #    discount_percent = discount/gross
+
+            #    item_discount = sales_total*discount_percent`
+            pass
+
+
+
+
+##Depreciated with strip microseconds
 def StripTimezone(datestring) :
     output = str(datestring).split('.')
     output = output[0]
     return output
 
-def DateDictBuilder(start,end):
-    ## Build date range dictionary
-    ## Documentation at: https://gist.github.com/jasonhdavis/73664baf24bdb595ffe0b66d01703c01
-    date_dict={}
-    labels = []
-    date_dict.update({start.year:{start.month:{start.day: 0}}})
-    delta_range = (end - start).days
-    y_keys = [str(start.year)]
-    m_keys = [str(start.month)+"-"+str(start.year)]
-
-    for i in range(delta_range+1):
-        iter_date = start+timedelta(days=i)
-        year = iter_date.year
-        month = iter_date.month
-        day = iter_date.day
-        labels.append(iter_date.strftime('%m-%d'))
-        if str(year) in y_keys and str(month)+"-"+str(year) in m_keys :
-            date_dict[year][month][day] = 0
-        elif str(year) in y_keys :
-            date_dict[year].update({month:{day:0}})
-            m_keys.append(str(month)+"-"+str(year))
-        else :
-            date_dict.update({year:{month:{day:0}}})
-            y_keys.append(str(year))
-            m_keys.append(str(month)+"-"+str(year))
-
-    return date_dict, labels
-
+## To be depreciated
 def DateFormHanlder(formvalue):
     if formvalue :
         daterange = formvalue.split(' - ')
@@ -106,123 +550,6 @@ def DateFormHanlder(formvalue):
         start = today - timedelta(days=30)
         end = today
     return start, end
-
-def AliasDictBuilder(cursor):
-    ## Alias Dictionary can be built based on context
-    ## For example, a single sku or all Owner Alias, etc
-    alias_dict = {}
-    for alias in cursor :
-        alias_dict[alias['Alias']] = alias['Product SKU']
-
-#    cursor.rewind()
-
-#    alias_dict['reverse'] = {}
-#    reverse = alias_dict['reverse']
-#    for alias in cursor :
-#        product_sku = alias['Product SKU']
-#        alias = alias['Alias']
-#        if alias in reverse :
-#        alias_dict['reverse'][alias['Alias']]
-
-    return alias_dict
-
-def DiscountHandler():
-
-    #if "Discount" in name :
-        #continue
-
-    ## Discount Handler ##
-
-    #discount = 0
-    #discount_percent = False
-
-    #for item in l['items']:
-    #    iter_sku = item['sku']
-    #    if 'Discount' in item['name'] :
-    #        discount = item['unitPrice']
-
-    #    if iter_sku not in alias_list :
-    #        continue
-    #if discount != 0 :
-    #    if discount < 0:
-    #        discount = discount * -1
-    #    gross = discount+order_total
-    #    discount_percent = discount/gross
-
-    #    item_discount = sales_total*discount_percent`
-    pass
-
-def ItemDictBuilder(cursor, date_dict, alias_dict, item_sku):
-    shipped_to_amz = 0
-    item_dict = {}
-    sku_list = []
-    for order in cursor :
-        # Sum Order Totals
-        order_date = order['orderDate']
-
-        # Count ship to Amz Quantity to avoid
-        ship_to = order['shipTo']['name']
-        if ship_to.find('Amazon') >-1 or ship_to.find('Golden State FC') >-1:
-            for item in order['items'] :
-                sku = item['sku']
-                if sku == item_sku or item_sku == 'All':
-                    shipped_to_amz += item['quantity']
-                # Do nothing with these duplicate quantities
-            continue
-
-        # Count item qty & sales
-        # Join on product Alias
-        for item in order['items']:
-            row = []
-            sku = item['sku']
-
-            if sku in alias_dict :
-                sku = alias_dict[sku]
-
-            ## To be implemented ##
-
-            if sku == "":
-                continue
-
-            name = item['name']
-            qty = item['quantity']
-            sales = item['unitPrice']*qty
-
-            store_id = order['advancedOptions']['storeId']
-
-            if sku in item_dict :
-                item_dict[sku]['sales'] += sales
-                item_dict[sku]['qty'] += qty
-                item_dict[sku]['stores'] = {}
-                if store_id in item_dict :
-                    item_dict[sku]['stores'][store_id] += qty
-                else :
-                    item_dict[sku]['stores'][store_id]={}
-                    item_dict[sku]['stores'][store_id] = qty
-
-                if sku == item_sku or item_sku == 'All':
-                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
-
-            else :
-                item_dict[sku] = {}
-                item_dict[sku]['name'] = name
-                item_dict[sku]['sales'] = sales
-                item_dict[sku]['qty'] = qty
-                item_dict[sku]['stores'] = {store_id:qty}
-
-                if sku == item_sku or item_sku == 'All' :
-                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
-
-    #Build chart value list
-    values=[]
-
-    for year in date_dict.values():
-        for month in year.values():
-          for day in month.values() :
-              values.append(day)
-
-    return item_dict, values, shipped_to_amz
-
 def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     shipped_to_amz = 0
     item_chart = []
@@ -231,6 +558,7 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
         # Sum Order Totals
         if order['orderStatus'] == 'cancelled':
             continue
+
         order_date = order['orderDate']
         amz_loc = ['24208 SAN MICHELE RD','900 PATROL RD','10240 OLD DOWD RD','705 BOULDER DR','6835 W BUCKEYE RD']
         # Count ship to Amz Quantity to avoid
@@ -298,6 +626,52 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
 
     return item_chart, values, shipped_to_amz
 
+### Duplicated Into Stockboy class
+def DateDictBuilder(start,end):
+    ## Build date range dictionary
+    ## Documentation at: https://gist.github.com/jasonhdavis/73664baf24bdb595ffe0b66d01703c01
+    date_dict={}
+    labels = []
+    date_dict.update({start.year:{start.month:{start.day: 0}}})
+    delta_range = (end - start).days
+    y_keys = [str(start.year)]
+    m_keys = [str(start.month)+"-"+str(start.year)]
+
+    for i in range(delta_range+1):
+        iter_date = start+timedelta(days=i)
+        year = iter_date.year
+        month = iter_date.month
+        day = iter_date.day
+        labels.append(iter_date.strftime('%m-%d'))
+        if str(year) in y_keys and str(month)+"-"+str(year) in m_keys :
+            date_dict[year][month][day] = 0
+        elif str(year) in y_keys :
+            date_dict[year].update({month:{day:0}})
+            m_keys.append(str(month)+"-"+str(year))
+        else :
+            date_dict.update({year:{month:{day:0}}})
+            y_keys.append(str(year))
+            m_keys.append(str(month)+"-"+str(year))
+
+    return date_dict, labels
+def AliasDictBuilder(cursor):
+    ## Alias Dictionary can be built based on context
+    ## For example, a single sku or all Owner Alias, etc
+    alias_dict = {}
+    for alias in cursor :
+        alias_dict[alias['Alias']] = alias['Product SKU']
+
+#    cursor.rewind()
+
+#    alias_dict['reverse'] = {}
+#    reverse = alias_dict['reverse']
+#    for alias in cursor :
+#        product_sku = alias['Product SKU']
+#        alias = alias['Alias']
+#        if alias in reverse :
+#        alias_dict['reverse'][alias['Alias']]
+
+    return alias_dict
 def FBADictBuilder() :
     cursor = mongo.db.fba.find({'Owner':current_user.email})
     fba_dict = {}
@@ -320,7 +694,6 @@ def FBADictBuilder() :
         fba_dict[asin]['afn-reserved-quantity'] += int(item['afn-reserved-quantity'])
 
     return fba_dict
-
 def ShipmentDictBuilder(start, end) :
     cursor = mongo.db.shipments.find({'$and':[
     {'createDate':{'$lte': end, '$gte':start}},
@@ -344,7 +717,6 @@ def ShipmentDictBuilder(start, end) :
 
 
     return ship_dict
-
 def ShipperDictBuilder() :
     shipper_dict = {}
 
@@ -358,6 +730,8 @@ def ShipperDictBuilder() :
         sd['username']=shipper['userName']
 
     return shipper_dict
+
+
 
 class MongoRole(enginedb.Document, RoleMixin):
     name = enginedb.StringField(max_length=80, unique=True)
@@ -382,55 +756,61 @@ class MongoUser(enginedb.Document, UserMixin):
 user_datastore = MongoEngineUserDatastore(enginedb, MongoUser, MongoRole)
 security = Security(app, user_datastore)
 
-# Create customized model view class
-class MyModelView(sqla.ModelView):
+#class Inventory(enginedb.DynamicDocument, UserMixin):
+#    sku = enginedb.StringField(max_length=80)
+#    available = enginedb.IntField(min_value=0)
+#    avg_cost= enginedb.FloatField(min_value=0)
+#    product_name = enginedb.StringField(max_length=512)
+#    owner = enginedb.StringField(max_length=64)
+#    allocated = enginedb.IntField(min_value=0)
+#    threshold = enginedb.IntField(min_value=0)
+#    last_cost = enginedb.FloatField(min_value=0)
+#    stock = enginedb.IntField(min_value=0)
 
-    def is_accessible(self):
-        if not current_user.is_active or not current_user.is_authenticated:
-            return False
+#InventoryForm = model_form(Inventory)
 
-        if current_user.has_role('superuser'):
-            return True
-
-        return False
-
-    def _handle_view(self, name, **kwargs):
-        """
-        Override builtin _handle_view in order to redirect users when a view is not accessible.
-        """
-        if not self.is_accessible():
-            if current_user.is_authenticated:
-                # permission denied
-                abort(403)
-            else:
-                # login
-                return redirect(url_for('security.login', next=request.url))
-
-
-    can_edit = True
-    edit_modal = True
-    create_modal = True
-    can_export = True
-    can_view_details = True
-    details_modal = True
-
-class MongoUserView(MyModelView):
-    column_editable_list = ['email', 'first_name', 'last_name']
-    column_searchable_list = column_editable_list
-    column_exclude_list = ['password']
-    #form_excluded_columns = column_exclude_list
-    column_details_exclude_list = column_exclude_list
-    column_filters = column_editable_list
-
-class FileUploadForm(FlaskForm) :
-    file = FileField(validators=[FileRequired()])
-    submit = SubmitField('Upload')
 
 class SSAPI(FlaskForm):
     user = HiddenField()
     key = TextField(validators.DataRequired())#current_user.ss_key)
     secret = PasswordField(validators.DataRequired())#current_user.ss_secret)
     submit = SubmitField('Submit')
+
+
+class DashboardView(AdminIndexView):
+    @expose('/', methods=('GET', 'POST'))
+    @login_required
+    def index(self):
+        formvalue = False
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+
+        sb = StockBoy()
+        sb.DateFormController(formvalue)
+
+        cursor = mongo.db.orders.find(
+        {'$and':[
+            {'createDate':
+                {'$lte': sb.results['end'],
+                '$gte':sb.results['start']}
+            },
+            {'owner':sb.results['email']}
+        ]}
+        )
+
+        sb.ReportDictBuilder(cursor)
+
+
+
+        results = sb.results
+
+
+        return self.render('admin/index.html', results=results)
+
+
+class FileUploadForm(FlaskForm) :
+    file = FileField(validators=[FileRequired()])
+    submit = SubmitField('Upload')
 
 class ProfileView(BaseView):
     @expose('/', methods=('GET','POST'))
@@ -561,7 +941,7 @@ class ProfileView(BaseView):
         return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform, fbaform=fbaform)
 
 class SalesView(BaseView):
-    @expose('/',methods=('GET', 'POST'))
+    @expose('/', methods=('GET', 'POST'))
     @login_required
     def index(self):
         formvalue = False
@@ -627,6 +1007,135 @@ class SalesView(BaseView):
 
         return self.render('admin/sales_index.html',top=top_bar,orders=item_chart, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
 
+    @expose('/channels/', methods=('GET', 'POST'))
+    @login_required
+    def SalesChannels(self):
+
+        #Iter through orders
+        #Collect sales into date dict under store ID
+        # No item chart
+
+        formvalue = False
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+
+        start, end = DateFormHanlder(formvalue)
+        start_date = start.strftime('%m/%d/%Y')
+        end_date = end.strftime('%m/%d/%Y')
+        delta_range = (end - start).days
+
+        date_dict, labels = DateDictBuilder(start, end)
+
+        email = current_user.email
+        ### Queries ###
+
+        ## Find Owner Orders in Date Range
+        range_search = mongo.db.orders.find({'$and':[
+        {'orderDate':{'$lte': end, '$gte':start}},
+        {'owner':email}]})
+
+        store_dict = {}
+        item_sku = 'All'
+        store_id_list = []
+        for order in range_search :
+            store_id = order['advancedOptions']['storeId']
+            store_id_list.append(store_id)
+            order_date = order['createDate']
+            sales=order['orderTotal']
+            qty=0
+            for item in order['items']:
+                qty+=item['quantity']
+            #if sku == item_sku or item_sku == 'All':
+            if date_dict[order_date.year][order_date.month][order_date.day] == 0:
+                date_dict[order_date.year][order_date.month][order_date.day] = {}
+                date_dict[order_date.year][order_date.month][order_date.day][store_id] = {'sales':0,'qty':0}
+                date_dict[order_date.year][order_date.month][order_date.day][store_id]['sales'] += sales
+                date_dict[order_date.year][order_date.month][order_date.day][store_id]['qty']+= qty
+            elif store_id in date_dict[order_date.year][order_date.month][order_date.day] :
+                date_dict[order_date.year][order_date.month][order_date.day][store_id]['sales']+= sales
+                date_dict[order_date.year][order_date.month][order_date.day][store_id]['qty']+= qty
+            else :
+                date_dict[order_date.year][order_date.month][order_date.day][store_id] = {'sales':0,'qty':0}
+                date_dict[order_date.year][order_date.month][order_date.day][store_id]['sales']+= sales
+                date_dict[order_date.year][order_date.month][order_date.day][store_id]['qty']+= qty
+
+
+        store_cursor = mongo.db.stores.find({'storeId':{'$in':store_id_list}})
+
+
+
+        for store in store_cursor :
+            store_id = store['storeId']
+            store_dict[store_id] = {}
+            sd = store_dict[store_id]
+            sd['label'] = store['storeName']
+            sd['marketplaceId'] = store['marketplaceId']
+            sd['sales'] = 0
+            sd['qty'] = 0
+
+
+        for year in date_dict.values() :
+            for month in year.values():
+                for day in month.values():
+                    if day == 0 :
+                        continue
+                    else:
+                        for store in day.items():
+                            store_id = store[0]
+                            store_dict[store_id]['sales']+= store[1]['sales']
+                            store_dict[store_id]['qty']+= store[1]['qty']
+
+
+        item_chart = []
+        for store in store_dict.values() :
+            row = []
+            row.append(store['label'])
+            row.append(store['qty'])
+            row.append(store['sales'])
+            item_chart.append(row)
+
+
+        top_bar=[]
+        top_bar.append(len(store_dict.keys()))
+
+        top_bar.append(0)
+        top_bar.append(0)
+        top_bar.append(0)
+
+        return self.render('admin/sales_channels.html',top=top_bar,orders=item_chart, labels=labels, values=store_dict, daterange=formvalue, startdate= start_date, enddate=end_date)
+
+    @expose('/<int:store>',methods=('GET', 'POST'))
+    def ProductChart(self, store):
+        ## Date Handling
+        formvalue = False
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+        #{'created':{'$lt':datetime.datetime.now(), '$gt':datetime.datetime.now() - timedelta(days=10)}}
+        #return str(mdb)
+
+        sb = StockBoy()
+        sb.DateFormController(formvalue)
+
+        cursor = mongo.db.orders.find(
+        {'$and':[
+            {'createDate':
+                {'$lte': sb.results['end'],
+                '$gte':sb.results['start']}
+            },
+            {'owner':sb.results['email']},
+            {'advancedOptions.storeId':store}
+        ]}
+        )
+
+        sb.ReportDictBuilder(cursor)
+
+
+
+        results = sb.results
+
+        return self.render('admin/index.html', results=results)
+
+
 class InventoryView(BaseView):
     @expose('/',methods=(['GET']))
     @login_required
@@ -676,6 +1185,8 @@ class InventoryView(BaseView):
 
         inventory = mongo.db.inventory.find({'Owner':email})
 
+
+        #search = Inventory.objects(Owner=email)
         for item in inventory :
             row = []
             amz_qty = 0
@@ -719,7 +1230,11 @@ class InventoryView(BaseView):
 
 
             row.append(sku)
-            row.append(item['Product Name'])
+            if env_version < (3, 0):
+                row.append(item['Product Name'])
+            else :
+                row.append(item['Product Name'])
+
             row.append(int(item['Stock']))
             row.append(item['Avg Cost'])
 
@@ -876,6 +1391,7 @@ class InventoryView(BaseView):
 
 
         return self.render('admin/inventory_index.html', items_chart=items_chart, top=top_bar)
+
 
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
@@ -1320,10 +1836,6 @@ class ShipmentView(BaseView):
 index_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'homepage')
 assets_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'homepage/assets')
 
-@app.route('/', methods=['GET'])
-def homepage():
-    return send_from_directory(index_file_dir, 'index.html')
-
 
 @app.route('/assets/<path:path>', methods=['GET'])
 def serve_file_in_dir(path):
@@ -1352,7 +1864,7 @@ admin = flask_admin.Admin(
     base_template='my_master.html',
     template_mode='bootstrap3',
     url = '/dashboard',
-    index_view=AdminIndexView(
+    index_view=DashboardView(
     name='Dashboard',
     template='admin/index.html',
     menu_icon_type='fa',
@@ -1364,8 +1876,7 @@ admin = flask_admin.Admin(
 )
 
 # Add model views
-#admin.add_view(MyModelView(MongoRole, 'Roles', menu_icon_type='fa', menu_icon_value='fa-server', name="Roles"))
-#admin.add_view(UserView(MongoUser, 'Users', menu_icon_type='fa', menu_icon_value='fa-users', name="Users"))
+#admin.add_view(InventoryEditor(Inventory,'Inventory',name='Inventory',menu_icon_type='fa',menu_icon_value='fa-archive'))
 admin.add_view(SalesView(name="Sales", endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-area-chart'))
 admin.add_view(InventoryView(name="Inventory", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive'))
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
@@ -1375,6 +1886,7 @@ admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_ty
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(ProfileView(name='Settings & Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
 
+#admin.add_view(InventoryEditor(name='Inventory Editor', endpoint='inventory-editor', menu_icon_type='fa', menu_icon_value='fa-cog'))
 
 ## Sub Items - Not visible in menu
 #admin.add_view(UserView(mongo.db['users'],mongo.db, endpoint='Mongo'))
