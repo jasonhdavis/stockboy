@@ -88,8 +88,8 @@ class StockBoy() :
 
     def DateFormController(self, formvalue) :
         start, end = DateFormHanlder(formvalue)
-        start = start.replace(hour=0, minute=01)
-        end = end.replace(hour=23, minute=59)
+        end = end.replace(hour=0, minute=01)
+        start = start.replace(hour=23, minute=59)
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
@@ -173,9 +173,7 @@ class StockBoy() :
         ##product_dict
 
         delta_range = self.results['delta_range']
-
         store_dict = self.results['store_dict']
-
         sku_category_dict = self.results['sku_category_dict']
 
 
@@ -266,10 +264,8 @@ class StockBoy() :
                     'qty': qty
                     }
 
-
             if len(ordered_together) > 1 :
                 ordered_together_dict[order_id] = ordered_together
-
 
             #### SALES & QTY BY DAY #####
             sales_by_day_dict[create_date.year][create_date.month][create_date.day] += order_total
@@ -471,7 +467,6 @@ class StockBoy() :
                   values.append(day)
 
         self.loading['values'] = values
-
 
     #############################
     ######## UTILITIES ##########
