@@ -798,7 +798,7 @@ class DashboardView(AdminIndexView):
 
 
         results = sb.results
-    
+
 
         return self.render('admin/index.html', results=results)
 
@@ -1827,9 +1827,19 @@ class ShipmentView(BaseView):
 
         return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
+
+
+
+######################################
+######## HOMEPAGE TO STATIC SITE ####
+######################################
 # Flask views
 index_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'homepage')
 assets_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'homepage/assets')
+
+@app.route('/', methods=['GET'])
+def homepage():
+    return send_from_directory(index_file_dir, 'index.html')
 
 
 @app.route('/assets/<path:path>', methods=['GET'])
@@ -1843,17 +1853,11 @@ def serve_file_in_dir(path):
 
     return send_from_directory(request_file_dir, filename)
 
-    #amazon = mongo.db.orders.find({'shipTo':{'name':{'$regex':'.*Amazon.*'}}})
-    #amazon_list = []
-    #for item in amazon:
-    #    amazon_list.append(item)
-colors = [
-    "#F7464A", "#46BFBD", "#FDB45C", "#FEDCBA",
-    "#ABCDEF", "#DDDDDD", "#ABCABC", "#4169E1",
-    "#C71585", "#FF4500", "#FEDCBA", "#46BFBD"]
 
 
-# Create admin
+#### START FLASK ADMIN
+### DASHBOARD & LOGIN
+
 admin = flask_admin.Admin(
     app, name='Stockboy',
     base_template='my_master.html',
@@ -1869,8 +1873,9 @@ admin = flask_admin.Admin(
     #index_view = DashboardView()
 
 )
-
-# Add model views
+#################
+# ADD ADMIN VIEWS
+#################
 #admin.add_view(InventoryEditor(Inventory,'Inventory',name='Inventory',menu_icon_type='fa',menu_icon_value='fa-archive'))
 admin.add_view(SalesView(name="Sales", endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-area-chart'))
 admin.add_view(InventoryView(name="Inventory", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive'))
