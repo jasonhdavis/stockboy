@@ -17,69 +17,7 @@
 </section>
 
 <section class="content">
-
-  <!-- Small boxes (Stat box) -->
-  <div class="row">
-    <div class="col-lg-3 col-xs-6">
-      <!-- small box -->
-      <div class="small-box bg-success">
-        <div class="inner">
-          <h3>{{results['top_bar']['total_sales']}}</h3>
-          <p>Sales</p>
-      </div>
-      <div class="icon">
-          <i class="ion ion-bag"></i>
-      </div>
-      <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-  </div>
-</div>
-<!-- ./col -->
-<div class="col-lg-3 col-xs-6">
-  <!-- small box -->
-  <div class="small-box bg-info">
-    <div class="inner">
-      <h3>{{results['top_bar']['total_qty']}}<sup style="font-size: 20px">%</sup></h3>
-
-      <p>Qty Sold</p>
-  </div>
-  <div class="icon">
-      <i class="ion ion-stats-bars"></i>
-  </div>
-  <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-</div>
-</div>
-<!-- ./col -->
-<div class="col-lg-3 col-xs-6">
-  <!-- small box -->
-  <div class="small-box bg-warning">
-    <div class="inner">
-      <h3>{{results['top_bar']['shipped_to_amz']}}</h3>
-
-      <p>Shipped to Amazon</p>
-  </div>
-  <div class="icon">
-      <i class="ion ion-person-add"></i>
-  </div>
-  <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-</div>
-</div>
-<!-- ./col -->
-<div class="col-lg-3 col-xs-6">
-  <!-- small box -->
-  <div class="small-box bg-danger">
-    <div class="inner">
-      <h3>{{results['top_bar']['avg_burn']}}</h3>
-
-      <p>Avg Burn Rate</p>
-  </div>
-  <div class="icon">
-      <i class="ion ion-pie-graph"></i>
-  </div>
-  <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-</div>
-</div>
-<!-- ./col -->
-</div>
+{% include 'admin/top_bar.html' %}
 <!-- /.row -->
 <!-- Main row -->
 <div class="row">
@@ -196,9 +134,8 @@
 
       };
 
-
-
       var CategoryPieChart = new Chart(category_pie, category_piechart)
+
     </script>
 
     <script>
@@ -233,13 +170,16 @@
           {% endfor %}
             ],
           backgroundColor: colors}
-  ],
-  label:'Sales by Day',
-  backgroundColor: [
-  'rgba(140,225,175,1)','rgba(59,96,175,1)','rgba(33,125,187,1)','rgba(255,130,140,1)'
-  ]
+        ],
+        label:'Sales by Day',
+        backgroundColor: [
+        'rgba(140,225,175,1)','rgba(59,96,175,1)','rgba(33,125,187,1)','rgba(255,130,140,1)'
+        ]
 
       }
+
+
+
       var sales_qty_chart =  {
         type:'line',
         data:saleschartdata,
@@ -252,6 +192,7 @@
 
 
       var SalesQtyChart = new Chart(saleschartelement,sales_qty_chart)
+
     </script>
 
 

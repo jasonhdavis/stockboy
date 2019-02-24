@@ -88,14 +88,13 @@ class StockBoy() :
 
     def DateFormController(self, formvalue) :
         start, end = DateFormHanlder(formvalue)
-        end = end.replace(hour=0, minute=01)
-        start = start.replace(hour=23, minute=59)
+        #end = end.replace(hour=0, minute=01)
+        #start = start.replace(hour=23, minute=59)
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
 
         self.DateDictBuilder(start, end)
-
         self.results['formavlue'] = formvalue
         self.results['start'] = start
         self.results['end'] = end
@@ -537,8 +536,8 @@ def StripTimezone(datestring) :
 def DateFormHanlder(formvalue):
     if formvalue :
         daterange = formvalue.split(' - ')
-        start = datetime.strptime(daterange[0],'%m/%d/%Y')
-        end = datetime.strptime(daterange[1], '%m/%d/%Y')
+        start = datetime.strptime(daterange[0]+" 01:01:01",'%m/%d/%Y %H:%M:%S')
+        end = datetime.strptime(daterange[1]+" 23:59:59", '%m/%d/%Y %H:%M:%S')
         #Because time ends at midnight, add one extra day, which represents midnight
         end = end
     else :
