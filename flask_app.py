@@ -5,6 +5,7 @@ import os
 import time
 import csv
 import sys
+from operator import itemgetter
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
@@ -797,8 +798,18 @@ class DashboardView(AdminIndexView):
 
 
 
-        results = sb.results
 
+
+        sku_sales_sort = []
+        for item in sb.results['sku_sales_dict'].values() :
+            sku_sales_sort.append((item['sku'],item['sales']))
+
+
+        sku_sales_sort.sort(key=itemgetter(1), reverse=True)
+        sku_sales_sort = sku_sales_sort[0:5]
+        sb.results['sku_sales_sort'] = sku_sales_sort
+
+        results = sb.results
 
         return self.render('admin/index.html', results=results)
 

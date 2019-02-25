@@ -3273,11 +3273,22 @@ table.text-center th {
   margin: 7% auto;
 }
 @media (max-width: 768px) {
+	
+body div.daterangepicker {
+	width: 270px !important;
+}
+	
+div.date-picker {
+	margin-top: 1rem !important;
+	float: none !important;
+	height: 6rem !important;
+}
 
 table#dtBasicExample {
 	visibility: visible;
 	overflow: scroll;
 	display: block;
+	
 }
 
 .login-box,
@@ -5541,6 +5552,7 @@ section.sidebar {
 
 .content-header small {
 	font-size: 1.1rem;
+	line-height: 1.2em;
 }
 
 .content-header img.product-image {
@@ -5651,10 +5663,24 @@ button.bg-secondary:focus {
   background-color: #2b2a2a !important;
 }
 
-.bg-success {
-    background-color: rgba(59,96,175,0.85) !important;
-  color: #fff;
 
+.small-box {
+	text-align: center;
+}
+
+.small-box h3 {
+	font-size: 220% !important;
+	line-height: 1.5em !important;
+}
+
+.small-box p {
+	color: rgba(255,255,255,0.7956913);
+	font-size: 1.5em;
+}
+
+.bg-success {
+    background-color: rgba(59,96,175,1) !important;
+  color: #fff;
 }
 
 a.bg-success:hover, a.bg-success:focus,
@@ -5665,8 +5691,7 @@ button.bg-success:focus {
 
 .bg-info {
 
-  background-color: 
-  rgba(140,225,175,1) !important;
+  background-color: #8ce1af;
   color: #fff;
 
 }
@@ -5678,7 +5703,7 @@ button.bg-info:focus {
 }
 
 .bg-warning {
-  background-color: rgba(254,167,112,1);
+  background-color: rgba(38,38,38,0.81);
     color: #fff;
 
 }
