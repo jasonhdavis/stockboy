@@ -196,7 +196,7 @@ class StockBoy() :
             order_status = order['orderStatus']
             if order_status == 'cancelled':
                 continue
-            order_total = order['orderTotal']
+            order_total = order['orderTotal']-order['shippingAmount']
             order_qty = 0
             shipping_amt = order['shippingAmount']
             street1 = order['shipTo']['street1']
@@ -807,6 +807,7 @@ class DashboardView(AdminIndexView):
 
         sku_sales_sort.sort(key=itemgetter(1), reverse=True)
         sku_sales_sort = sku_sales_sort[0:5]
+
         sb.results['sku_sales_sort'] = sku_sales_sort
 
         results = sb.results
