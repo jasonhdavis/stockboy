@@ -286,6 +286,7 @@ class StockBoy() :
                     category_id = sku_category_dict[item_sku][0]
                     category_name = sku_category_dict[item_sku][1]
 
+
                 else:
                     category_id = None
                     category_name = 'None'
