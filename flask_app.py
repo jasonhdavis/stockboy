@@ -286,7 +286,7 @@ class StockBoy() :
                     category_id = sku_category_dict[item_sku][0]
                     category_name = sku_category_dict[item_sku][1]
 
-                else :
+                else:
                     category_id = None
                     category_name = 'None'
                     ## If sent to Amazon, avoid qty double count
