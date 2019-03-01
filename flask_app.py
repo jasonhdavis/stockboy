@@ -282,15 +282,15 @@ class StockBoy() :
                     calculated_total += price
                     qty = 0 #Do not count discount as an item
 
-                if item_sku in sku_category_dict:
+                if item_sku in sku_category_dict :
                     category_id = sku_category_dict[item_sku][0]
                     category_name = sku_category_dict[item_sku][1]
-
 
                 else:
                     category_id = None
                     category_name = 'None'
-                    ## If sent to Amazon, avoid qty double count
+                ## If sent to Amazon, avoid qty double count
+
                 if amz_transfer :
                     by_day_dict[order_date.year][order_date.month][order_date.day]['fba']+= qty
                     shipped_to_amz+= qty
