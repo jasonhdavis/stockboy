@@ -36,7 +36,7 @@
 
         {% endif %}
       </div>
-          <div class="card card-info file">
+          <div id="inventory-card" class="card card-info file">
             <div class="card-header"><h2>Inventory Uploads</h2></div>
             <div class="card-body">
               <h2>Last Updated: {% if current_user.inventory_updated %}{{current_user.inventory_updated}}{% else %}Never{% endif %}</h2>
@@ -54,7 +54,7 @@
             </form>
         </div>
       </div>
-      <div class="card card-info file">
+      <div id="alias-card" class="card card-info file">
         <div class="card-header"><h2>Alias Uploads</h2></div>
         <div class="card-body">
           <h2>Last Updated: {% if current_user.alias_updated %}{{current_user.alias_updated}}{%else%}Never{% endif %}</h2>
@@ -71,7 +71,7 @@
           {{aliasform.submit}}
         </form>
     </div>
-    <div class="card card-info file">
+    <div id="fba-card" class="card card-info file">
       <div class="card-header"><h2>FBA Upload</h2></div>
       <div class="card-body">
         <h2>Last Updated: {% if current_user.fba_updated %}{{current_user.fba_updated}}{%else%}Never{% endif %}</h2>

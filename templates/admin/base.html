@@ -1,5 +1,7 @@
 {% import 'admin/layout.html' as layout with context -%}
 {% import 'admin/static.html' as admin_static with context %}
+{% import 'admin/parts.html' as parts %}
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -54,6 +56,7 @@
   <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
 
   <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js'></script>
 </head>
 <body class="hold-transition skin-blue sidebar-mini">
 
@@ -156,10 +159,9 @@
 
 {% block tail_js %}
 <!-- jQuery 2.2.3 -->
-<script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
 
 <!-- jQuery UI 1.11.4 -->
-<script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js'></script>
+
 
 <script type="text/javascript" src="{{url_for('static',filename='js/datatables.min.js')}}"></script>
 
@@ -181,10 +183,6 @@
 <script src="{{url_for('static',filename='plugins/fastclick/fastclick.js')}}"></script>
 <!-- AdminLTE App -->
 <script src="{{url_for('static',filename='js/app.min.js')}}"></script>
-
-{% if admin_view.name=="Home" %}
-  <script src="{{url_for('static',filename='js/pages/dashboard.js')}}"></script>
-{% endif %}
 
 {% endblock tail_js%}
 

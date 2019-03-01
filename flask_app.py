@@ -5,11 +5,14 @@ import os
 import time
 import csv
 import sys
+import copy
+import pytz
+
 from operator import itemgetter
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
-from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory
+from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory, Markup
 from flask_mongoengine import MongoEngine
 from flask_mongoengine.wtf import model_form
 from flask_security import Security, \
@@ -58,15 +61,32 @@ login_manager.login_view = 'login'
 #scheduler = BackgroundScheduler()
 #atexit.register(lambda: scheduler.shutdown())
 now = datetime.now()
-today = datetime(now.year, now.month, now.day)
-
-
+today = datetime(now.year, now.month, now.day, 23,59,59)
 
 
 ######################################
 ############# FUNCTIONS ##############
 ######################################
 def StripMicroseconds(datestring) :
+    output = str(datestring).split('.')
+    output = output[0]
+    return output
+
+def DateFormHanlder(formvalue):
+    if formvalue :
+        daterange = formvalue.split(' - ')
+        start = datetime.strptime(daterange[0]+" 00:00:00",'%m/%d/%Y %H:%M:%S')
+        end = datetime.strptime(daterange[1]+" 23:59:59", '%m/%d/%Y %H:%M:%S')
+        #timezone = pytz.timezone("America/Los_Angeles")
+        #start = timezone.localize(start)
+        #end = timezone.localize(end)
+
+    else :
+        start = today - timedelta(days=30, hours=23, minutes=59, seconds=59)
+        end = today
+    return start, end
+
+def StripTimezone(datestring) :
     output = str(datestring).split('.')
     output = output[0]
     return output
@@ -78,7 +98,9 @@ class StockBoy() :
         email = current_user.email
 
         self.results = {
-        'email':current_user.email
+        'email':current_user.email,#'matt@charlieandwobbs.com'#
+        'element':0
+
         }
 
         #RUN INIT BUILDERS
@@ -118,6 +140,7 @@ class StockBoy() :
             store_dict[store_id] = store
 
         self.results['store_dict'] = store_dict
+
     def ShipperDictBuilder(self) :
         shipper_dict = {}
 
@@ -131,6 +154,7 @@ class StockBoy() :
             sd['username']=shipper['userName']
 
         self.results['shipper_dict'] = shipper_dict
+
     def AliasDictBuilder(self):
         ## Alias Dictionary can be built based on context
         ## For example, a single sku or all Owner Alias, etc
@@ -140,7 +164,10 @@ class StockBoy() :
         for alias in alias_search :
             alias_dict[alias['Alias']] = alias['Product SKU']
 
-        self.results['alias_dict']=alias_dict
+        self.results['alias_dict'] = alias_dict
+
+        if len(alias_dict) == 0 :
+            flash(Markup('Please Upload Your Product <a href="https://stockboy.co/dashboard/import/#alias-card">Alias List from Shipstation</a>.'))
 
 ########################################
 ###### PRIMARY REPORT BUILDERS #########
@@ -159,15 +186,25 @@ class StockBoy() :
         ordered_together_dict = {}
 
         ##### BY DAY DICTS ######
-        sales_by_day_dict = self.results['date_dict']
-        qty_by_day_dict = self.results['date_dict']
-        fba_qty_by_day_dict = self.results['date_dict']
+        by_day_dict = copy.deepcopy(self.results['date_dict'])
+
+        for year in by_day_dict.values() :
+            for month in year.values() :
+                for day in month.keys():
+                    month[day] = {
+                        'sales':0,
+                        'qty':0,
+                        'fba':0,
+                        'discounts':0,
+                        'shipping':0,
+                        }
 
         ## Top Bar / Top level metrics
         total_qty = 0
         total_sales = 0
         shipped_to_amz = 0
-
+        total_discounts = 0
+        total_shipping = 0
         ### Supporting Variables
         #alias_dict
         ##product_dict
@@ -176,6 +213,11 @@ class StockBoy() :
         store_dict = self.results['store_dict']
         sku_category_dict = self.results['sku_category_dict']
 
+
+        if 'target_sku' in self.results.keys() :
+            target_sku = self.results['target_sku']
+        else :
+            target_sku = 'All'
 
         ## Sku
         #### Name
@@ -192,46 +234,72 @@ class StockBoy() :
             customer_id = order['customerId']
             warehouse_id = order['advancedOptions']['warehouseId']
             create_date = order['createDate']
+            timezone = pytz.timezone("America/Los_Angeles")
+
+            order_date = order['orderDate']
+            order_date = timezone.localize(order_date)
             order_id = order['orderId']
             order_status = order['orderStatus']
+
             if order_status == 'cancelled':
                 continue
-            order_total = order['orderTotal']-order['shippingAmount']
+
+            order_total = order['orderTotal']
             order_qty = 0
             shipping_amt = order['shippingAmount']
             street1 = order['shipTo']['street1']
-            name = order['shipTo']['name']
+            customer_name = order['shipTo']['name']
             city = order['shipTo']['city']
             state = order['shipTo']['state']
             email = order['customerEmail']
-
+            calculated_total = 0
+            discounts = 0
             ordered_together = []
 
             amz_transfer = self.AMZCheck(street1)
+
+            if store_dict[store_id]['marketplaceName'] == 'Amazon':
+                shipping_amt = 0
 
             for item in order['items'] :
 
                 item_sku = self.SKUFlatten(item['sku'])
                 ordered_together.append(item_sku)
 
+                if target_sku != 'All' and target_sku != item_sku:
+                    continue
+
                 price = item['unitPrice']
                 qty = item['quantity']
-
                 img = item['imageUrl']
                 name = item['name']
+
+                if price < 0 or 'discount' in name.lower() :
+                    if price > 0 :
+                        price = price * -1
+
+                    discounts += price
+                    calculated_total += price
+                    qty = 0 #Do not count discount as an item
+
                 if item_sku in sku_category_dict:
                     category_id = sku_category_dict[item_sku][0]
                     category_name = sku_category_dict[item_sku][1]
 
+                else :
+                    category_id = None
+                    category_name = 'None'
 
                 ## If sent to Amazon, avoid qty double count
                 if amz_transfer :
-                    fba_qty_by_day_dict[create_date.year][create_date.month][create_date.day] += qty
+                    by_day_dict[order_date.year][order_date.month][order_date.day]['fba']+= qty
                     shipped_to_amz+= qty
+
                     continue
 
                 ## Amazon orders have exited, add to total qty count which gets added to topbar total qty
                 order_qty += qty
+                calculated_total += qty*price
 
                 ### Items not transfered to Amazon get counted in existing record
                 if item_sku in sku_sales_dict :
@@ -240,6 +308,7 @@ class StockBoy() :
                     ssd['sales'] += price*qty
                     ssd['qty']+= qty
                     ssd['burn'] = float(ssd['qty'])/float(delta_range)
+
 
                 ### Else Create a new record
                 else :
@@ -257,6 +326,7 @@ class StockBoy() :
                     csd = category_sales_dict[category_id]
                     csd['sales'] += price*qty
                     csd['qty'] += qty
+
                 else :
                     category_sales_dict[category_id] = {
                     'name' : category_name,
@@ -267,36 +337,50 @@ class StockBoy() :
             if len(ordered_together) > 1 :
                 ordered_together_dict[order_id] = ordered_together
 
+
+            ## STILL INSIDE ORDER, SET ORDER LEVEL ITEMS ##
             #### SALES & QTY BY DAY #####
-            sales_by_day_dict[create_date.year][create_date.month][create_date.day] += order_total
-            qty_by_day_dict[create_date.year][create_date.month][create_date.day] += order_qty
+            by_day_dict[order_date.year][order_date.month][order_date.day]['sales']+= calculated_total
+            by_day_dict[order_date.year][order_date.month][order_date.day]['qty']+= int(order_qty)
+            by_day_dict[order_date.year][order_date.month][order_date.day]['discounts']+= discounts
+
+            ### Calculate Top Level Stats####
             total_qty += order_qty
-            total_sales += order_total
+            # All discounts are negative and were not part of item calculation because their quantity is zero
+            total_sales += calculated_total
+            total_discounts += discounts
+            total_shipping += shipping_amt
 
             #### STORE / MARKETPLACE CHANNEL SALES ####
             if store_id in store_sales_dict :
-                store_sales_dict[store_id]['sales']+= order_total
+                store_sales_dict[store_id]['sales']+= calculated_total
                 store_sales_dict[store_id]['qty']+= order_qty
+                store_sales_dict[store_id]['shipping'] += shipping_amt
+                store_sales_dict[store_id]['discounts'] += discounts
             else :
                 store_sales_dict[store_id] = {
                 'name': store_dict[store_id]['storeName'],
-                'sales': order_total,
-                'qty': order_qty
+                'sales': calculated_total,
+                'qty': order_qty,
+                'discounts': discounts,
+                'shipping': shipping_amt
                 }
 
 
             #### CUSTOMER SALES DETAILS ######
             if customer_id in customer_sales_dict :
                 ## Customer ID coorilates with customer email
-                customer_sales_dict[customerId]['sales'] += order_total
+                customer_sales_dict[customerId]['sales'] += calculated_total
                 customer_sales_dict[customerId]['qty' ]+= order_qty
 
 
             elif customer_id in vars() :
                 customer_sales_dict[customerId]={
                 'name': name,
-                'sales': order_total,
+                'sales': calculated_total,
                 'qty': order_qty,
+                'shipping': shipping_amt,
+                'discounts': discounts,
                 'street1': street1,
                 'city': city,
                 'state': state,
@@ -312,10 +396,12 @@ class StockBoy() :
         self.results['customer_sales_dict'] = customer_sales_dict
 
         # By Day results
-        self.results['sales_by_day_dict'] = sales_by_day_dict
-        self.results['qty_by_day_dict'] = qty_by_day_dict
-        self.results['fba_qty_by_day_dict'] = fba_qty_by_day_dict
+        #self.results['sales_by_day_dict'] = sales_by_day_dict
+        #self.results['qty_by_day_dict'] = qty_by_day_dict
+        #self.results['fba_qty_by_day_dict'] = fba_qty_by_day_dict
+        self.results['by_day_dict'] = by_day_dict
 
+        self.results['ordered_together_dict'] = ordered_together_dict
 
         #### Calculate Average Burn Rate ####
         #### Take each burn rate and get an average ###
@@ -325,18 +411,41 @@ class StockBoy() :
         for sku in sku_sales_dict :
             burn_rates.append(sku_sales_dict[sku]['burn'])
 
-        if len(burn_rates) > 1:
+        if len(burn_rates) > 0:
             avg_burn = (sum(burn_rates)/len(burn_rates))*delta_range
             avg_burn = round(avg_burn,2)
         else :
             avg_burn = 0
 
+        qty_per_day = total_qty/delta_range
+
+
         self.results['top_bar'] = {
             'total_qty': total_qty,
             'total_sales': total_sales,
             'shipped_to_amz':shipped_to_amz,
-            'avg_burn':  avg_burn
+            'avg_burn':  avg_burn,
+            'qty_per_day': qty_per_day,
+            'discounts': total_discounts,
+            'shipping': total_shipping,
+            'gross_sales': total_sales+total_shipping
             }
+
+
+    def OrderedTogether(self, sku):
+        ordered_together_dict = self.results['ordered_together_dict']
+
+        ordered_with = {}
+        for sku_list in ordered_together_dict.values() :
+            if sku in sku_list :
+                for product in sku_list :
+                    if product != sku :
+                        if product in ordered_with :
+                            ordered_with[product]+=1
+                        else:
+                            ordered_with[product] = 1
+
+        self.results['ordered_with'] = ordered_with
 
 ##############################
 #### DICTIONARY BUILDERS #####
@@ -356,7 +465,6 @@ class StockBoy() :
         sku_category_dict = {}
 
         product_dict = self.results['product_dict']
-
 
 
         #### AT this point, you should add in inventory values from import
@@ -387,17 +495,17 @@ class StockBoy() :
         date_dict={}
         labels = []
         date_dict.update({start.year:{start.month:{start.day: 0}}})
-        delta_range = (end - start).days
+        delta_range = (end - start).days+1
 
         y_keys = [str(start.year)]
         m_keys = [str(start.month)+"-"+str(start.year)]
 
-        for i in range(delta_range+1):
+        for i in range(delta_range):
             iter_date = start+timedelta(days=i)
             year = iter_date.year
             month = iter_date.month
             day = iter_date.day
-            labels.append(iter_date.strftime('%m-%d'))
+            labels.append(iter_date.strftime('%b %d'))
             if str(year) in y_keys and str(month)+"-"+str(year) in m_keys :
                 date_dict[year][month][day] = 0
             elif str(year) in y_keys :
@@ -525,27 +633,12 @@ class StockBoy() :
             #    item_discount = sales_total*discount_percent`
             pass
 
-
-
-
 ##Depreciated with strip microseconds
-def StripTimezone(datestring) :
-    output = str(datestring).split('.')
-    output = output[0]
-    return output
+
+
 
 ## To be depreciated
-def DateFormHanlder(formvalue):
-    if formvalue :
-        daterange = formvalue.split(' - ')
-        start = datetime.strptime(daterange[0]+" 01:01:01",'%m/%d/%Y %H:%M:%S')
-        end = datetime.strptime(daterange[1]+" 23:59:59", '%m/%d/%Y %H:%M:%S')
-        #Because time ends at midnight, add one extra day, which represents midnight
-        end = end
-    else :
-        start = today - timedelta(days=30)
-        end = today
-    return start, end
+
 def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
     shipped_to_amz = 0
     item_chart = []
@@ -786,7 +879,7 @@ class DashboardView(AdminIndexView):
 
         cursor = mongo.db.orders.find(
         {'$and':[
-            {'createDate':
+            {'orderDate':
                 {'$lte': sb.results['end'],
                 '$gte':sb.results['start']}
             },
@@ -796,14 +889,9 @@ class DashboardView(AdminIndexView):
 
         sb.ReportDictBuilder(cursor)
 
-
-
-
-
         sku_sales_sort = []
         for item in sb.results['sku_sales_dict'].values() :
             sku_sales_sort.append((item['sku'],item['sales']))
-
 
         sku_sales_sort.sort(key=itemgetter(1), reverse=True)
         sku_sales_sort = sku_sales_sort[0:5]
@@ -811,6 +899,8 @@ class DashboardView(AdminIndexView):
         sb.results['sku_sales_sort'] = sku_sales_sort
 
         results = sb.results
+
+
 
         return self.render('admin/index.html', results=results)
 
@@ -1467,109 +1557,38 @@ class ProductView(BaseView):
         return self.render('admin/product_index.html',  top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
 
 
-    @expose('/<string:item_sku>',methods=('GET', 'POST'))
-    def ProductChart(self, item_sku):
-        ## Date Handling
+    @expose('/<string:target_sku>',methods=('GET', 'POST'))
+    def ProductChart(self, target_sku):
         formvalue = False
         if request.method == 'POST':
             formvalue = request.form.get('daterange')
-        #{'created':{'$lt':datetime.datetime.now(), '$gt':datetime.datetime.now() - timedelta(days=10)}}
-        #return str(mdb)
-        product_details = {}
 
-        ### Build a Product Detail view across API models
-        details = mongo.db.products.find_one({'sku':item_sku})
-        #product_details['created'] = details['createDate']
-        #product_details['category'] = details['productCategory']['name']
-        product_details['sku'] = item_sku
+        sb = StockBoy()
 
-        if 'name' in details['productCategory']:
-            product_details['category'] = details['productCategory']['name']
+        sb.results['target_sku'] = target_sku
 
-        product_details['createDate'] = details['createDate']
+        sb.DateFormController(formvalue)
 
-        if 'sb_product_cost' in details :
-            product_details['sb_product_cost'] = details['sb_product_cost']
+        cursor = mongo.db.orders.find(
+        {'$and':[
+            {'orderDate':
+                {'$lte': sb.results['end'],
+                '$gte':sb.results['start']}
+            },
+            {'owner':sb.results['email']},
 
-        else :
-            product_details['sb_product_cost'] = 0
+        ]}
+        )
 
-        if 'sb_default_cost' in details :
-            pass
+        sb.ReportDictBuilder(cursor)
 
-        if 'sb_marketplace_costs' in details :
-            pass
+        sb.OrderedTogether(target_sku)
+
+        results = sb.results
+        #return self.render('admin/index.html', results=results)
 
 
-        #inv_details = mongo.db.inventory.find_one({'SKU':item_sku})
-        #product_details['stock'] = inv_details['Stock']
-        #product_details['avg cost'] = inv_details['Avg Cost']
-
-        start, end = DateFormHanlder(formvalue)
-        start_date = start.strftime('%m/%d/%Y')
-        end_date = end.strftime('%m/%d/%Y')
-        delta_range = (end - start).days
-
-        date_dict, labels = DateDictBuilder(start, end)
-
-        # Sku, Name, Sales, Qty
-        name = False
-        img = False
-        email = current_user.email
-
-        # Individual Product Alias
-        alias_search = mongo.db.alias.find({"$and":[{'Owner':current_user.email},{'Product SKU': item_sku}]})
-        alias_dict = AliasDictBuilder(alias_search)
-        alias_list = list(alias_dict.keys())
-        alias_list.append(item_sku)
-
-        range_search = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':{'$lt': end, '$gt':start}},
-                {'owner':email},
-                {'items.sku':{"$in":alias_list}}
-                ]})
-
-        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
-
-        clean_chart = []
-        for row in item_chart :
-            if row[0] not in alias_list:
-                continue
-            else :
-                clean_chart.append(row)
-        item_chart = clean_chart
-        ## The first time we see the item, get the name
-        range_search.rewind()
-        for order in range_search :
-            for item in order['items'] :
-                if not name or not img:
-                    if item['sku'] in alias_list:
-                        name = item['name']
-                        img = item['imageUrl']
-                else :
-                    continue
-
-        top_bar = []
-        sales_total = 0
-        qty_total = 0
-
-        for row in item_chart :
-            sales_total += row[2]
-            qty_total += row[3]
-
-        top_bar.append(sales_total)
-        top_bar.append(qty_total)
-        top_bar.append(shipped_to_amz)
-        avg_burn = float(qty_total) / float(delta_range)
-        top_bar.append(avg_burn)
-
-        max_values = max(values)
-
-        product_details['name'] = name
-        product_details['img'] = img
-
-        return self.render('admin/product_sku.html', product_details=product_details, alias_list=alias_list, top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
+        return self.render('admin/product_sku.html', results=results)
 
 class CustomerView(BaseView) :
     @expose('/',methods=('GET', 'POST'))

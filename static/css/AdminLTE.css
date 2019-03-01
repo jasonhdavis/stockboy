@@ -5556,9 +5556,9 @@ section.sidebar {
 }
 
 .content-header img.product-image {
-	float: right;
+	float: left;
 	clear: both;
-	margin-right: -15px !important;
+	padding-right: 10px;
 }
 
 .dataTables_filter {
@@ -5569,7 +5569,24 @@ section.sidebar {
 	float: none;
 }
 
+div.alert {
+	background-color: #e5747d !important;
+	border: none !important;
+	clear: both;
+}
+
+div.alert button.close {
+	font-size: 2.25em;
+	display: inline-block;
+	position: static;
+	margin-top: -10px;
+	float: right;
+	margin-right: -2em;
+}
+
 .content-header h1 {
+	width: 70%;
+	font-size: 2em !important;
 }
 
 /* @group DatePicker */
