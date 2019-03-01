@@ -289,8 +289,7 @@ class StockBoy() :
                 else :
                     category_id = None
                     category_name = 'None'
-
-                ## If sent to Amazon, avoid qty double count
+                    ## If sent to Amazon, avoid qty double count
                 if amz_transfer :
                     by_day_dict[order_date.year][order_date.month][order_date.day]['fba']+= qty
                     shipped_to_amz+= qty
