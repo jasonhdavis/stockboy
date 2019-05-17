@@ -1362,7 +1362,7 @@ class InventoryView(BaseView):
                     qty_total += amz_qty
                     true_count +=1
                     if true_count > 1 :
-                        flash('Multiple ASIN Match on: '+ item['Product Name'])
+                        flash('Multiple ASIN Match on: '+ str(item['Product Name']))
 
 
             if item['Avg Cost'] > 0 :
