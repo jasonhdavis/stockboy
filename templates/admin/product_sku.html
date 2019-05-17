@@ -12,7 +12,6 @@
     {% set sku = results['target_sku'] %}
     <img class="product-image" width="150px" src="{{ssd[sku]['img']}}">
     <h1>{{ssd[sku]['name']}}<br>
-    <small>Top-level stats to give you an overview of your sales, shipments, products & customers</small>
   </h1>
   <ol class="breadcrumb">
     <li><a href="../../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
@@ -21,6 +20,11 @@
   {% include 'admin/daterange.html' %}
 
 </section>
+<section>
+  <h2>Product Details</h2>
+  <h5>Category: {{ssd[sku]['category']}}</h5>
+</section>
+
 
 <section class="content">
 

@@ -12,7 +12,7 @@ from operator import itemgetter
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
-from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory, Markup
+from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory, Markup, jsonify
 from flask_mongoengine import MongoEngine
 from flask_mongoengine.wtf import model_form
 from flask_security import Security, \
@@ -37,6 +37,8 @@ from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 import random
 from flask_login import LoginManager
+
+from fba_locations import fba_locations
 
 
 import xlrd
@@ -73,7 +75,14 @@ def StripMicroseconds(datestring) :
     return output
 
 def DateFormHanlder(formvalue):
-    if formvalue :
+    if not formvalue :
+        start = today - timedelta(days=30, hours=23, minutes=59, seconds=59)
+        end = today
+    elif type(formvalue) == int :
+        start = today - timedelta(days=formvalue)
+        end = today
+
+    else :
         daterange = formvalue.split(' - ')
         start = datetime.strptime(daterange[0]+" 00:00:00",'%m/%d/%Y %H:%M:%S')
         end = datetime.strptime(daterange[1]+" 23:59:59", '%m/%d/%Y %H:%M:%S')
@@ -81,9 +90,6 @@ def DateFormHanlder(formvalue):
         #start = timezone.localize(start)
         #end = timezone.localize(end)
 
-    else :
-        start = today - timedelta(days=30, hours=23, minutes=59, seconds=59)
-        end = today
     return start, end
 
 def StripTimezone(datestring) :
@@ -91,23 +97,33 @@ def StripTimezone(datestring) :
     output = output[0]
     return output
 
+def AddressEndingStrip (address) :
+    strip_list = [
+    'RD','ROAD','RD.',
+    'BLVD.','BLVD','BOULEVARD',
+    'DRIVE','DR','DR.',
+    'CIRCLE','CIR','CIR.',
+    'SUITE','STE','STE.','#'
+    ]
+    address = address.split(" ")
+
+    return list(set(address) - set(strip_list))
+
 
 class StockBoy() :
 
     def __init__(self):
-        email = current_user.email
-
+        email = current_user.email #'MeganERager@gmail.com'#
         self.results = {
-        'email':current_user.email,#'matt@charlieandwobbs.com'#
+        'email':email,#'matt@charlieandwobbs.com'#
         'element':0
-
         }
-
         #RUN INIT BUILDERS
         self.AliasDictBuilder()
         self.StoreDictBuilder()
         self.ShipperDictBuilder()
         self.ProductDictBuilder()
+        self.FBADictBuilder()
 
     def DateFormController(self, formvalue) :
         start, end = DateFormHanlder(formvalue)
@@ -168,6 +184,7 @@ class StockBoy() :
 
         if len(alias_dict) == 0 :
             flash(Markup('Please Upload Your Product <a href="https://stockboy.co/dashboard/import/#alias-card">Alias List from Shipstation</a>.'))
+
 
 ########################################
 ###### PRIMARY REPORT BUILDERS #########
@@ -251,21 +268,24 @@ class StockBoy() :
             customer_name = order['shipTo']['name']
             city = order['shipTo']['city']
             state = order['shipTo']['state']
+            zip = order['shipTo']['postalCode']
             email = order['customerEmail']
             calculated_total = 0
             discounts = 0
             ordered_together = []
 
-            amz_transfer = self.AMZCheck(street1)
+            is_amz = False
+            amz_transfer = self.AMZCheck(street1, state)
+
 
             if store_dict[store_id]['marketplaceName'] == 'Amazon':
                 shipping_amt = 0
+                is_amz = True
 
             for item in order['items'] :
 
                 item_sku = self.SKUFlatten(item['sku'])
                 ordered_together.append(item_sku)
-
                 if target_sku != 'All' and target_sku != item_sku:
                     continue
 
@@ -308,17 +328,29 @@ class StockBoy() :
                     ssd['sales'] += price*qty
                     ssd['qty']+= qty
                     ssd['burn'] = float(ssd['qty'])/float(delta_range)
-
+                    if is_amz :
+                        ssd['amz-sales'] += price*qty
+                        ssd['amz-qty'] += qty
 
                 ### Else Create a new record
                 else :
+                    if is_amz:
+                        amz_sales = price*qty
+                        amz_qty = qty
+                    else :
+                        amz_sales = 0
+                        amz_qty = 0
+
                     sku_sales_dict[item_sku] = {
                     'sku': item_sku,
                     'name': name,
+                    'category': category_name,
                     'img': img,
                     'sales': price*qty,
                     'qty': qty,
-                    'burn': qty/delta_range
+                    'burn': qty/delta_range,
+                    'amz-sales': amz_sales,
+                    'amz-qty':amz_qty
                     }
 
                 #### Category Sales Dict Input
@@ -431,7 +463,6 @@ class StockBoy() :
             'gross_sales': total_sales+total_shipping
             }
 
-
     def OrderedTogether(self, sku):
         ordered_together_dict = self.results['ordered_together_dict']
 
@@ -456,6 +487,10 @@ class StockBoy() :
 
         range_search = mongo.db.products.find({'owner':self.results['email']})
 
+        #fba_inventory = mongo.db.mws.find({'owner':self.results['email']})
+
+        #ss_inventory = mongo.db.inventory.find({'owner':self.results['email']})
+
         for product in range_search :
             product_id = product['productId']
             product_dict[product_id]=product
@@ -474,6 +509,11 @@ class StockBoy() :
         for product in product_dict.values() :
             sku = product['sku']
             id = product['productId']
+            name = product['name']
+            length = product['length']
+            width = product['width']
+            height = product['height']
+            weight = product['weightOz']
 
             if product['productCategory'] :
                 cat_id = product_dict[id]['productCategory']['categoryId']
@@ -520,28 +560,42 @@ class StockBoy() :
         self.results['date_dict'] = date_dict
         self.results['date_range_labels'] = labels
 
-    def FBADictBuilder() :
-        cursor = mongo.db.fba.find({'Owner':current_user.email})
+    def FBADictBuilder(self) :
+        #build address list
+        address_list = []
+        for location in fba_locations.values() :
+            address=location['address'].upper()
+            address = AddressEndingStrip(address)
+            #zip = location['zip']
+            state = location['state']
+            address_list.append(address)
+
+        ## BUILD FBA INVENTORY FROM MWS COLLECTION
+        cursor = mongo.db.mws.find({'Owner':current_user.email})
         fba_dict = {}
         for item in cursor :
-            asin = item['asin']
+            asin = item['ASIN']
 
             if asin not in fba_dict :
                 fba_dict[asin] = {}
+                fba_dict[asin]['SellerSKU'] = item['SellerSKU']
+                fba_dict[asin]['TotalSupplyQty'] = item['TotalSupplyQuantity']
+                fba_dict[asin]['Condition'] = item['Condition']
 
-                fba_dict[asin]['afn-fulfillable-quantity'] = 0
-                fba_dict[asin]['afn-warehouse-quantity'] = 0
-                fba_dict[asin]['afn-total-quantity'] = 0
-                fba_dict[asin]['afn-inbound-shipped-quantity'] = 0
-                fba_dict[asin]['afn-reserved-quantity'] = 0
+                #fba_dict[asin]['afn-fulfillable-quantity'] = 0
+                #fba_dict[asin]['afn-warehouse-quantity'] = 0
+                #fba_dict[asin]['afn-total-quantity'] = 0
+                #fba_dict[asin]['afn-inbound-shipped-quantity'] = 0
+                #fba_dict[asin]['afn-reserved-quantity'] = 0
 
-            fba_dict[asin]['afn-fulfillable-quantity'] += int(item['afn-fulfillable-quantity'])
-            fba_dict[asin]['afn-warehouse-quantity'] += int(item['afn-warehouse-quantity'])
-            fba_dict[asin]['afn-total-quantity'] += int(item['afn-total-quantity'])
-            fba_dict[asin]['afn-inbound-shipped-quantity'] += int(item['afn-inbound-shipped-quantity'])
-            fba_dict[asin]['afn-reserved-quantity'] += int(item['afn-reserved-quantity'])
+            #fba_dict[asin]['afn-fulfillable-quantity'] += int(item['afn-fulfillable-quantity'])
+            #fba_dict[asin]['afn-warehouse-quantity'] += int(item['afn-warehouse-quantity'])
+            #fba_dict[asin]['afn-total-quantity'] += int(item['afn-total-quantity'])
+            #fba_dict[asin]['afn-inbound-shipped-quantity'] += int(item['afn-inbound-shipped-quantity'])
+            #fba_dict[asin]['afn-reserved-quantity'] += int(item['afn-reserved-quantity'])
 
-        return fba_dict
+        self.results['address_list'] = address_list
+        self.results['fba_dict'] = fba_dict
 
     def ShipmentDictBuilder(start, end) :
         cursor = mongo.db.shipments.find({'$and':[
@@ -582,6 +636,7 @@ class StockBoy() :
     #############################
 
     def SKUFlatten (self, sku):
+
         alias_dict = self.results['alias_dict']
 
         if sku in alias_dict:
@@ -591,12 +646,17 @@ class StockBoy() :
             sku = 'sb-'+str(random.randint(123456,234567))
 
         return sku
-    def AMZCheck(self, street1) :
-        amz_loc = ['24208 SAN MICHELE RD','900 PATROL RD','10240 OLD DOWD RD','705 BOULDER DR','6835 W BUCKEYE RD']
+
+
+    def AMZCheck(self, street1, state) :
+
+        amz_address = self.results['address_list']
 
         ship_add = street1.upper()
+        ship_add = AddressEndingStrip(ship_add)
 
-        if ship_add in amz_loc :
+
+        if ship_add in amz_address :
             amz_transfer = True
         else :
             amz_transfer = False
@@ -838,6 +898,10 @@ class MongoUser(enginedb.Document, UserMixin):
     inventory_updated = enginedb.DateTimeField()
     alias_updated = enginedb.DateTimeField()
     fba_updated = enginedb.DateTimeField()
+    fba_merchant_id = enginedb.StringField(max_length=255)
+    fba_access_key = enginedb.StringField(max_length=255)
+    fba_secret_key = enginedb.StringField(max_length=255)
+
 
 # Setup Flask-Security
 #user_datastore = SQLAlchemyUserDatastore(db, User, Role)
@@ -858,12 +922,27 @@ security = Security(app, user_datastore)
 
 #InventoryForm = model_form(Inventory)
 
+###############
+### FORMS #####
+###############
 
 class SSAPI(FlaskForm):
     user = HiddenField()
     key = TextField(validators.DataRequired())#current_user.ss_key)
     secret = PasswordField(validators.DataRequired())#current_user.ss_secret)
     submit = SubmitField('Submit')
+
+class MWSAPI(FlaskForm):
+    user = HiddenField()
+    merchant = TextField(validators.DataRequired())#current_user.ss_key)
+    key = TextField(validators.DataRequired())#current_user.ss_key)
+    secret = PasswordField(validators.DataRequired())#current_user.ss_secret)
+    submit = SubmitField('Submit')
+
+class FileUploadForm(FlaskForm) :
+    file = FileField(validators=[FileRequired()])
+    submit = SubmitField('Upload')
+
 
 
 class DashboardView(AdminIndexView):
@@ -900,23 +979,17 @@ class DashboardView(AdminIndexView):
 
         results = sb.results
 
-
-
         return self.render('admin/index.html', results=results)
 
-
-class FileUploadForm(FlaskForm) :
-    file = FileField(validators=[FileRequired()])
-    submit = SubmitField('Upload')
 
 class ProfileView(BaseView):
     @expose('/', methods=('GET','POST'))
     @login_required
     def UserProfile(self):
         apiform = SSAPI(prefix='apiform')
+        fbaform = MWSAPI(prefix='fbaform')
         inventoryform = FileUploadForm(prefix='inventoryform')
         aliasform = FileUploadForm(prefix='aliasform')
-        fbaform = FileUploadForm(prefix='fbaform')
         nice_now = datetime.strftime(now,"%m-%d-%Y at %I:%M %p")
 
         if request.method == 'POST' and apiform.submit.data:
@@ -937,7 +1010,7 @@ class ProfileView(BaseView):
             f.save(save_path)
             wb = xlrd.open_workbook(save_path)
             ws = wb.sheet_by_index(0)
-            if ws.cell_value(0,0) != 'ShipStation Stock Report' :
+            if ws.cell_value(0,0) != 'Inventory Status Report' :
                 flash('File does not match expected Inventory Stock Report format')
             else:
                 mongo.db.inventory.remove({"Owner":current_user.email})
@@ -972,6 +1045,7 @@ class ProfileView(BaseView):
             return redirect(url_for('import.UserProfile'))
 
         if aliasform.validate_on_submit() and aliasform.submit.data:
+
             f = aliasform.file.data
             filename = secure_filename(f.filename)
             save_path = os.path.join(app.root_path,'uploads', filename)
@@ -998,42 +1072,17 @@ class ProfileView(BaseView):
                 mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'alias_updated':now}})
             return redirect(url_for('import.UserProfile'))
 
-        if fbaform.validate_on_submit() and fbaform.submit.data:
-            f = fbaform.file.data
-            filename = secure_filename(f.filename)
-            save_path = os.path.join(app.root_path,'uploads', filename)
-            f.save(save_path)
-
-            fba = csv.DictReader(open(save_path, 'rt'), delimiter='\t')
-            text = []
-            lines = 0
-            mongo.db.fba.remove({"Owner":current_user.email})
-            for line in fba :
-                try:
-                    encoded_line = {k: unicode(v).decode("utf-8") for k,v in line.iteritems()}
-                except:
-                    try:
-                        encoded_line = {k: unicode(v).decode("utf-16") for k,v in line.iteritems()}
-                    except:
-                        #print encoded_line
-                        continue
-                try:
-                    encoded_line['Owner'] = current_user.email
-                    encoded_line['fba_updated'] = nice_now
-                    mongo.db.fba.update({'asin':line['asin']},encoded_line,upsert=True)
-
-                    #mongo.db.fba.update({'email':current_user.email},{'$set':{'sku':line['sku']}},encoded_line,upsert=True)
-                except:
-                    print("line write error")
-                    flash(encoded_line)
-
-                lines+= 1
-
-            mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'fba_updated':now}})
-            flash('Imported ' + str(lines) + ' FBA Records')
-
+        if request.method == 'POST' and fbaform.submit.data:
+            flash('MWS API Key Updated - Data will be available within 24 hours.')
+            userid = current_user.id
+            current = mongo.db.mongo_user.find_one({"_id": ObjectId(userid)})
+            current['fba_merchant_id'] = fbaform.merchant.data
+            current['fba_access_key'] = fbaform.key.data
+            current['fba_secret_key'] = fbaform.secret.data
+            mongo.db.mongo_user.update({"_id":ObjectId(userid)},{'$set':{'fba_merchant_id':fbaform.merchant.data,'fba_access_key':fbaform.key.data, 'fba_secret_key':fbaform.secret.data}},upsert=True)
+            #current_user.ss_key = apiform.key.data
+            #current_user.ss_secret = apiform.secret.data
             return redirect(url_for('import.UserProfile'))
-
 
         return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform, fbaform=fbaform)
 
@@ -1202,7 +1251,7 @@ class SalesView(BaseView):
         return self.render('admin/sales_channels.html',top=top_bar,orders=item_chart, labels=labels, values=store_dict, daterange=formvalue, startdate= start_date, enddate=end_date)
 
     @expose('/<int:store>',methods=('GET', 'POST'))
-    def ProductChart(self, store):
+    def Channel(self, store):
         ## Date Handling
         formvalue = False
         if request.method == 'POST':
@@ -1237,6 +1286,8 @@ class InventoryView(BaseView):
     @expose('/',methods=(['GET']))
     @login_required
     def InventoryCharts(self):
+
+        sb = StockBoy()
         i = 0
         values = []
         labels = []
@@ -1278,7 +1329,7 @@ class InventoryView(BaseView):
             sku_sales_index.append(item[0])
             total_qty_sold += item[3]
 
-        fba_dict = FBADictBuilder()
+        fba_dict = sb.results['fba_dict']
 
         inventory = mongo.db.inventory.find({'Owner':email})
 
@@ -1305,9 +1356,9 @@ class InventoryView(BaseView):
             for alias in alias_list :
                 if alias in fba_dict :
                     matched_asin = True
-                    item_amz_warehouse = int(fba_dict[alias]['afn-warehouse-quantity'])
-                    item_amz_inbound = int(fba_dict[alias]['afn-inbound-shipped-quantity'])
-                    amz_qty = item_amz_warehouse + item_amz_inbound
+                    item_amz_warehouse = int(fba_dict[alias]['TotalSupplyQty'])
+                    #item_amz_inbound = int(fba_dict[alias]['afn-inbound-shipped-quantity'])
+                    amz_qty = item_amz_warehouse #+ item_amz_inbound
                     qty_total += amz_qty
                     true_count +=1
                     if true_count > 1 :
@@ -1489,6 +1540,81 @@ class InventoryView(BaseView):
 
         return self.render('admin/inventory_index.html', items_chart=items_chart, top=top_bar)
 
+class FBAView(BaseView):
+    @expose('/',methods=(['GET']))
+    @login_required
+    def index(self):
+        sb = StockBoy()
+        formvalue = 45
+        sb.DateFormController(formvalue)
+
+        cursor = mongo.db.orders.find(
+        {'$and':[
+            {'orderDate':
+                {'$lte': sb.results['end'],
+                '$gte':sb.results['start']}
+            },
+            {'owner':sb.results['email']}
+        ]}
+        )
+        sb.ReportDictBuilder(cursor)
+
+        fba_dict = sb.results['fba_dict']
+
+        ## Final Result
+        sku_sales_dict = sb.results['sku_sales_dict']
+        ## | UPC | Name | Amazon Qty (45 Days) | FBA Inventory | Days
+
+        fba_inventory_results_dict = {}
+        total_qty = 0
+        fba_skus = len(fba_dict)
+
+
+        for item in fba_dict :
+
+            # Match ASIN with SKU
+            sku = sb.SKUFlatten(item)
+            # Get Amazon Only Sales from SKU Sales Dict
+            if sku in sku_sales_dict :
+                amz_qty = int(sku_sales_dict[sku]['amz-qty'])
+                total_qty += amz_qty
+                supply = int(fba_dict[item]['TotalSupplyQty'])
+                amz_sales = sku_sales_dict[sku]['amz-sales']
+                name = sku_sales_dict[sku]['name']
+                img = sku_sales_dict[sku]['img']
+
+                if supply == 0 :
+                    days = 0
+                elif amz_sales == 0 :
+                    days = 9999999999
+                else :
+                    days = float(supply) / (float(amz_qty)/float(45))
+
+            else :
+                amz_qty = 0
+                supply = int(fba_dict[item]['TotalSupplyQty'])
+                days = 9999999999
+                amz_sales = 0
+                name = '??'
+                img = '\#'
+
+            fba_inventory_results_dict[sku] = {
+                'sku' : sku,
+                'asin' : item,
+                'name' : name,
+                'img' : img,
+                'amz-sales' : amz_sales,
+                'amz-qty': amz_qty,
+                'supply' : supply,
+                'days': days
+            }
+
+        sb.results['fba_inventory_results_dict'] = fba_inventory_results_dict
+        sb.results['top_bar']['fba_skus'] = fba_skus
+        sb.results['top_bar']['fba_total_qty'] = total_qty
+
+        return self.render('admin/fba_index.html', results=sb.results)
+
 
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
@@ -1558,7 +1684,7 @@ class ProductView(BaseView):
 
 
     @expose('/<string:target_sku>',methods=('GET', 'POST'))
-    def ProductChart(self, target_sku):
+    def Product(self, target_sku):
         formvalue = False
         if request.method == 'POST':
             formvalue = request.form.get('daterange')
@@ -1913,7 +2039,7 @@ admin.add_view(InventoryView(name="Inventory", endpoint='inventory', menu_icon_t
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
 admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
-#admin.add_view(AmazonView(name="Amazon", endpoint='amazon', menu_icon_type='fa', menu_icon_value='fa-amazon'))
+admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(ProfileView(name='Settings & Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
 

@@ -12,7 +12,7 @@
     <!-- Left col -->
     <section class="container">
         <section class="content-header">
-                <h1>Inventory</h1>
+                <h1>FBA Inventory</h1>
                   <small>Current Stock Levels, Sell-Through Rate, Inventory Value & Days of Inventory</small>
           <ol class="breadcrumb">
               <li><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
@@ -26,7 +26,7 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{"{:,}".format(top[0])}}</h3>
+                  <h3>{{results['top_bar']['fba_total_qty']}}</h3>
                   <p>Total Inventory</p>
               </div>
               <div class="icon">
@@ -40,7 +40,7 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{"{:,}".format(top[1])}}</h3>
+              <h3>$0</h3>
 
               <p>Inventory Value</p>
           </div>
@@ -55,7 +55,7 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{"{:,}".format(top[2])}}</h3>
+              <h3>{{results['top_bar']['fba_skus']}}</h3>
 
               <p>SKUs</p>
           </div>
@@ -70,7 +70,7 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{"{:,.2f}".format(top[3])}}%</h3>
+              <h3>Fast</h3>
 
               <p>Sell Through</p>
           </div>
@@ -92,34 +92,29 @@
                 <tr>
                     <th class="th-sm">Sku</th>
                     <th class="th-sm">Name</th>
-                    <th class="th-sm">Local Stock</th>
-                    <th class="th-sm">Avg Cost</th>
-
-                    <th class="th-sm">Amz Warehouse</th>
+                    <th class="th-sm">FBA Supply</th>
                     <th class="th-sm">Qty Sold (45 Days)</th>
-                    <th class="th-sm">Inventory Days</th>
-
-
+                    <th class="th-sm">Sales (45 Days)</th>
+                    <th class="th-sm">Days</th>
 
                 </tr>
             </thead>
             <tbody >
-              {% for item in items_chart %}
+              {% for item in results['fba_inventory_results_dict'] %}
                 <tr>
-                    <td>{{item[0]}}</td>
-                    <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
-                    <td width="10%">{{item[2]}}</td>
-                    <td width="10%">${{"{:,.2f}".format(item[3])}}</td>
-                    <td width="10%">{{item[4]}}</td>
-                    <td width="20%">{{item[6]}}</td>
-                    <td width="20%">{{"{:,.1f}".format(item[7])}}</td>
+                    <td>{{item}}<br>
+                    <img src="{{results['fba_inventory_results_dict'][item]['img']}}" widht=100 height=100></td>
+                    <td width="50%"><a href="../product/{{item}}">{{results['fba_inventory_results_dict'][item]['name']}}</a></td>
+                    <td width="10%">{{results['fba_inventory_results_dict'][item]['supply']}}</td>
+                    <td width="10%">{{results['fba_inventory_results_dict'][item]['amz-qty']}}</td>
+                    <td width="10%">${{results['fba_inventory_results_dict'][item]['amz-sales']}}</td>
+                    <td width="10%">{{"{:,.1f}".format(results['fba_inventory_results_dict'][item]['days'])}}</td>
 
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
           </div>
-
     </section>
     <!-- /.Left col -->
 
@@ -170,7 +165,7 @@
     $(document).ready(function () {
       $('#dtBasicExample').DataTable({
        "paging": true, // false to disable pagination (or any other option)
-       "order":[[5, "desc"]],
+       "order":[[3, "desc"]],
        'iDisplayLength' : 100,
        "language":{
          "search":"",
