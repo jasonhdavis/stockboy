@@ -26,7 +26,7 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{ results['top_bar']['total_inventory'] }}</h3>
+                  <h3>{{ "{:,.0f}".format(results['top_bar']['total_inventory']) }}</h3>
                   <p>Total Inventory</p>
               </div>
               <div class="icon">
@@ -40,7 +40,7 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{results['top_bar']['total_value']}}</h3>
+              <h3>${{"{:,.2f}".format(results['top_bar']['total_value'])}}</h3>
 
               <p>Inventory Value</p>
           </div>
@@ -70,9 +70,8 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{results['top_bar']['total_value']}}</h3>
-
-              <p>Total Value</p>
+              <h3>{{"{:,.1f}".format(results['top_bar']['total_days'])}}</h3>
+              <p>Avg. Days</p>
           </div>
           <div class="icon">
               <i class="ion ion-bonfire"></i>
@@ -94,7 +93,6 @@
                     <th class="th-sm">Name</th>
                     <th class="th-sm">Local Stock</th>
                     <th class="th-sm">Avg Cost</th>
-
                     <th class="th-sm">Amz Warehouse</th>
                     <th class="th-sm">Qty Sold (45 Days)</th>
                     <th class="th-sm">Inventory Days</th>
@@ -109,11 +107,11 @@
                     <td>{{item['SKU']}}
                     <br><img width="100px" src="{{item['img']}}"</td>
                     <td width="50%"><a href="../product/{{item['SKU']}}">{{item['name']}}</a></td>
-                    <td width="10%">{{item['stock']}}</td>
+                    <td width="10%">{{"{:,.0f}".format(item['stock'])}}</td>
                     <td width="10%">${{item['cost']}}</td>
                     <td width="10%">{{item['fba']}}</td>
                     <td width="20%">{{item['sold']}}</td>
-                    <td width="20%">{{item['days']}}</td>
+                    <td width="20%">{{"{:,.1f}".format(item['days'])}}</td>
 
                 </tr>
                 {% endfor %}

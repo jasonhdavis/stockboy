@@ -1392,6 +1392,7 @@ class InventoryView(BaseView):
             if sold > 1 :
                 burn = float(float(sold)/45.0)
                 days = (stock+fba)/burn
+
             else :
                 days = 999999999999999
             row['days'] = days
@@ -1401,13 +1402,17 @@ class InventoryView(BaseView):
             total_value += row['cost']*(stock+fba)
             total_skus += 1
 
-        top_bar = {
-            'total_inventory':total_inventory,
-            'total_sold': total_sold,
-            'total_value': total_value,
-            'total_skus': total_skus
-        }
+        top_bar = sb.results['top_bar']
 
+        top_bar['total_inventory'] = total_inventory
+        top_bar['total_sold'] = total_sold
+        top_bar['total_value'] = total_value
+        top_bar['total_skus'] = total_skus
+
+        total_qty = sb.results['top_bar']['total_qty']
+        total_days = total_inventory/(total_qty/sb.results['delta_range'])
+
+        top_bar['total_days'] = total_days
         sb.results['top_bar'] = top_bar
         sb.results['inventory_results_dict'] = inventory_results_dict
 
