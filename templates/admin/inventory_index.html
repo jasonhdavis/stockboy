@@ -26,7 +26,7 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{"{:,}".format(top[0])}}</h3>
+                  <h3>{{ results['top_bar']['total_inventory'] }}</h3>
                   <p>Total Inventory</p>
               </div>
               <div class="icon">
@@ -40,7 +40,7 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{"{:,}".format(top[1])}}</h3>
+              <h3>${{results['top_bar']['total_value']}}</h3>
 
               <p>Inventory Value</p>
           </div>
@@ -55,7 +55,7 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{"{:,}".format(top[2])}}</h3>
+              <h3>{{results['top_bar']['total_skus']}}</h3>
 
               <p>SKUs</p>
           </div>
@@ -70,9 +70,9 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{"{:,.2f}".format(top[3])}}%</h3>
+              <h3>{{results['top_bar']['total_value']}}</h3>
 
-              <p>Sell Through</p>
+              <p>Total Value</p>
           </div>
           <div class="icon">
               <i class="ion ion-bonfire"></i>
@@ -104,15 +104,16 @@
                 </tr>
             </thead>
             <tbody >
-              {% for item in items_chart %}
+              {% for item in results['inventory_results_dict'].values() %}
                 <tr>
-                    <td>{{item[0]}}</td>
-                    <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
-                    <td width="10%">{{item[2]}}</td>
-                    <td width="10%">${{"{:,.2f}".format(item[3])}}</td>
-                    <td width="10%">{{item[4]}}</td>
-                    <td width="20%">{{item[6]}}</td>
-                    <td width="20%">{{"{:,.1f}".format(item[7])}}</td>
+                    <td>{{item['SKU']}}
+                    <br><img width="100px" src="{{item['img']}}"</td>
+                    <td width="50%"><a href="../product/{{item['SKU']}}">{{item['name']}}</a></td>
+                    <td width="10%">{{item['stock']}}</td>
+                    <td width="10%">${{item['cost']}}</td>
+                    <td width="10%">{{item['fba']}}</td>
+                    <td width="20%">{{item['sold']}}</td>
+                    <td width="20%">{{item['days']}}</td>
 
                 </tr>
                 {% endfor %}
