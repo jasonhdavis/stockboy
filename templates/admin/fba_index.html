@@ -109,7 +109,7 @@
                     <td width="50%"><a href="../product/{{item}}">{{results['fba_inventory_results_dict'][item]['name']}}</a></td>
                     <td width="10%">{{results['fba_inventory_results_dict'][item]['supply']}}</td>
                     <td width="10%">{{results['fba_inventory_results_dict'][item]['amz-qty']}}</td>
-                    <td width="10%">${{results['fba_inventory_results_dict'][item]['amz-sales']}}</td>
+                    <td width="10%">${{"{:,.2f}".format(results['fba_inventory_results_dict'][item]['amz-sales'])}}</td>
                     <td width="10%">{{"{:,.1f}".format(results['fba_inventory_results_dict'][item]['days'])}}</td>
                     <td width="10%">{{results['fba_inventory_results_dict'][item]['recommended']}}</td>
 
