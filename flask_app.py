@@ -1546,7 +1546,14 @@ class FBAView(BaseView):
     @login_required
     def index(self):
         sb = StockBoy()
+
+        ## Calculate Turn every X days (future user setting)
         formvalue = 45
+        ## Target FBA days of inventory (future user setting)
+        fba_target = 30
+        ## Target Re-send frequency (future user setting)
+        fba_resend = 15
+
         sb.DateFormController(formvalue)
 
         cursor = mongo.db.orders.find(
@@ -1572,11 +1579,13 @@ class FBAView(BaseView):
 
 
         for item in fba_dict :
-
+            if item == 'meta':
+                continue
             # Match ASIN with SKU
-            #sku = sb.SKUFlatten(item)
+            sku = sb.SKUFlatten(item)
             # Get Amazon Only Sales from SKU Sales Dict
             if sku in sku_sales_dict :
+
                 amz_qty = int(sku_sales_dict[sku]['amz-qty'])
                 total_qty += amz_qty
                 supply = int(fba_dict[item]['TotalSupplyQty'])
@@ -1586,10 +1595,18 @@ class FBAView(BaseView):
 
                 if supply == 0 :
                     days = 0
-                elif amz_sales == 0 :
+
+                elif amz_qty == 0 :
                     days = 9999999999
+                    recommended = 0
+
                 else :
-                    days = float(supply) / (float(amz_qty)/float(45))
+                    days = float(supply) / (float(amz_qty)/float(formvalue))
+
+                    recommended = ((fba_target + fba_resend) / formvalue * amz_qty) - supply
+                    if recommended <= 0 :
+                        recommended = 0
+
 
             else :
                 amz_qty = 0
@@ -1598,6 +1615,8 @@ class FBAView(BaseView):
                 amz_sales = 0
                 name = '??'
                 img = '\#'
+                recommended = 0
+
 
             fba_inventory_results_dict[sku] = {
                 'sku' : sku,
@@ -1607,7 +1626,8 @@ class FBAView(BaseView):
                 'amz-sales' : amz_sales,
                 'amz-qty': amz_qty,
                 'supply' : supply,
-                'days': days
+                'days': days,
+                'recommended': recommended
             }
 
         sb.results['fba_inventory_results_dict'] = fba_inventory_results_dict

@@ -96,6 +96,8 @@
                     <th class="th-sm">Qty Sold (45 Days)</th>
                     <th class="th-sm">Sales (45 Days)</th>
                     <th class="th-sm">Days</th>
+                    <th class="th-sm">Recommended</th>
+
 
                 </tr>
             </thead>
@@ -109,6 +111,7 @@
                     <td width="10%">{{results['fba_inventory_results_dict'][item]['amz-qty']}}</td>
                     <td width="10%">${{results['fba_inventory_results_dict'][item]['amz-sales']}}</td>
                     <td width="10%">{{"{:,.1f}".format(results['fba_inventory_results_dict'][item]['days'])}}</td>
+                    <td width="10%">{{results['fba_inventory_results_dict'][item]['recommended']}}</td>
 
                 </tr>
                 {% endfor %}
