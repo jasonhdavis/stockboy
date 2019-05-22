@@ -94,7 +94,7 @@
                     <th class="th-sm">Local Stock</th>
                     <th class="th-sm">Avg Cost</th>
                     <th class="th-sm">Amz Warehouse</th>
-                    <th class="th-sm">Qty Sold (45 Days)</th>
+                    <th class="th-sm">Qty Sold ({{results['delta_range']}} Days)</th>
                     <th class="th-sm">Inventory Days</th>
 
 
@@ -109,7 +109,15 @@
                     <br><img width="100px" src="{{item['img']}}"</td>
                     <td width="50%"><a href="../product/{{item['SKU']}}">{{item['name']}}</a></td>
                     <td width="10%">{{"{:,.0f}".format(item['stock'])}}</td>
-                    <td width="10%">${{item['cost']}}</td>
+                    <td width="5%">$
+                      <form id="{{item['SKU']}}">
+                        {{costform.cost(size=5, value="{:,.2f}".format(item['cost']))}}
+                        {{costform.sku(value=item['SKU'])}}
+                        {{ costform.hidden_tag() }}
+                        <span class="saved-text" style="display:none;">Saved!</span>
+                      </form>
+
+                      </td>
                     <td width="10%">{{item['fba']}}</td>
                     <td width="20%">{{item['sold']}}</td>
                     <td width="20%">{{"{:,.1f}".format(item['days'])}}</td>
@@ -169,7 +177,7 @@
   <script>
     $(document).ready(function () {
       $('#dtBasicExample').DataTable({
-       "paging": true, // false to disable pagination (or any other option)
+       "paging": false, // false to disable pagination (or any other option)
        "order":[[5, "desc"]],
        'iDisplayLength' : 100,
        "language":{
@@ -180,6 +188,33 @@
     $('.dataTables_length').addClass('bs-select');
   });
   </script>
+  <script>
+    $(document).ready(function() {
+        $('form').focusout(function (e) {
+            var url = "#"; // send the form data here.
+            var form_id = $(this).attr('id');
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: $('#'+form_id).serialize(), // serializes the form's elements.
+                success: function (data) {
+                    $('#'+form_id + ' span.saved-text').fadeIn(400).fadeOut(400)
+                    console.log(data)  // display the returned data in the console.
+                }
+            });
+            e.preventDefault(); // block the traditional submission of the form.
+        });
+        // Inject our CSRF token into our AJAX request.
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ costform.csrf_token._value() }}")
+                }
+            }
+        })
+    });
+</script>
+
   <script>
   function downloadCSV(csv, filename) {
       var csvFile;

@@ -7,12 +7,13 @@ import csv
 import sys
 import copy
 import pytz
+import json
 
 from operator import itemgetter
 from datetime import datetime, timedelta
 import locale
 locale.setlocale(locale.LC_ALL, '')
-from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory, Markup, jsonify
+from flask import Flask, url_for, redirect, render_template, request, abort, flash, send_from_directory, Markup, jsonify, session
 from flask_mongoengine import MongoEngine
 from flask_mongoengine.wtf import model_form
 from flask_security import Security, \
@@ -22,14 +23,14 @@ import hashlib
 import base64
 from flask_mail import Mail
 import flask_admin
-from flask_admin.contrib import sqla
+#from flask_session import Session
 from flask_admin import helpers as admin_helpers
 from flask_admin import BaseView, expose, AdminIndexView
 from flask_bootstrap import Bootstrap
 from flask_datepicker import datepicker
 from flask_admin.contrib.pymongo import ModelView
 from flask_wtf import Form, FlaskForm
-from wtforms import StringField, PasswordField, TextField, SubmitField, validators, HiddenField
+from wtforms import StringField, PasswordField, TextField, SubmitField, validators, HiddenField, FloatField, DecimalField
 from flask_wtf.file import FileField, FileRequired
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import CombinedMultiDict
@@ -59,7 +60,7 @@ mail = Mail(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
+#Session(app)
 #scheduler = BackgroundScheduler()
 #atexit.register(lambda: scheduler.shutdown())
 now = datetime.now()
@@ -113,17 +114,22 @@ def AddressEndingStrip (address) :
 class StockBoy() :
 
     def __init__(self):
-        email = current_user.email #'MeganERager@gmail.com'#
+        email = current_user.email #'
+        ### Development Email Address
+        #email = 'lazyluckyfree@gmail.com'
         self.results = {
         'email':email,#'matt@charlieandwobbs.com'#
         'element':0
         }
+        session['results'] = {}
+
         #RUN INIT BUILDERS
         self.AliasDictBuilder()
         self.StoreDictBuilder()
         self.ShipperDictBuilder()
         self.ProductDictBuilder()
         self.FBADictBuilder()
+        self.SSInventoryBuilder()
 
     def DateFormController(self, formvalue) :
         start, end = DateFormHanlder(formvalue)
@@ -178,7 +184,7 @@ class StockBoy() :
 
         alias_dict = {}
         for alias in alias_search :
-            alias_dict[alias['Alias']] = alias['Product SKU']
+            alias_dict[alias['Alias']] = alias['Product SKU'].strip()
 
         self.results['alias_dict'] = alias_dict
 
@@ -193,6 +199,9 @@ class StockBoy() :
 
         ### Define a number of outputs that come from iterating through orders
         ### Create all possible dictionaries / outputs at once with a single loop of orders
+
+        ## Check for session here
+
 
         #### OUTPUT ########
         ### TOTAL SALES DICTS ######
@@ -230,6 +239,8 @@ class StockBoy() :
         store_dict = self.results['store_dict']
         sku_category_dict = self.results['sku_category_dict']
 
+        inventory_dict = self.results['inventory_dict']
+        fba_dict = self.results['fba_dict']
 
         if 'target_sku' in self.results.keys() :
             target_sku = self.results['target_sku']
@@ -291,8 +302,10 @@ class StockBoy() :
 
                 price = item['unitPrice']
                 qty = item['quantity']
+
                 img = item['imageUrl']
                 name = item['name']
+
 
                 if price < 0 or 'discount' in name.lower() :
                     if price > 0 :
@@ -328,15 +341,24 @@ class StockBoy() :
                     ssd['sales'] += price*qty
                     ssd['qty']+= qty
                     ssd['burn'] = float(ssd['qty'])/float(delta_range)
+                    if item_sku in inventory_dict :
+                        ssd['stock'] = inventory_dict[item_sku]['Available']
+
                     if is_amz :
                         ssd['amz-sales'] += price*qty
                         ssd['amz-qty'] += qty
+                        ssd['asin'] = item['sku']
+                        if item_sku in fba_dict:
+                            ssd['fba_stock'] = fba_dict[item_sku]['InStockSupplyQty']
+                    if not ssd['img']:
+                        ssd['img'] = img
 
                 ### Else Create a new record
                 else :
                     if is_amz:
                         amz_sales = price*qty
                         amz_qty = qty
+
                     else :
                         amz_sales = 0
                         amz_qty = 0
@@ -483,6 +505,9 @@ class StockBoy() :
 ##############################
 
     def ProductDictBuilder(self):
+
+        #if not 'product_dict' in session['results']:
+
         product_dict = {}
 
         range_search = mongo.db.products.find({'owner':self.results['email']})
@@ -497,9 +522,9 @@ class StockBoy() :
 
         self.results['product_dict'] = product_dict
 
-        sku_category_dict = {}
+        #session['product_dict'] = product_dict
 
-        product_dict = self.results['product_dict']
+        sku_category_dict = {}
 
 
         #### AT this point, you should add in inventory values from import
@@ -514,12 +539,13 @@ class StockBoy() :
             width = product['width']
             height = product['height']
             weight = product['weightOz']
+            #created = product['createDate']
 
             if product['productCategory'] :
                 cat_id = product_dict[sku]['productCategory']['categoryId']
                 cat_name = product_dict[sku]['productCategory']['name']
             else :
-                cat_id = 999
+                cat_id = 9999
                 cat_name = 'uncategorized'
 
             sku_category_dict[sku] = (cat_id, cat_name)
@@ -567,6 +593,7 @@ class StockBoy() :
         #meta variables
         sku_count = 0
         total_stock = 0
+        stock_value = 0
         for item in cursor :
 
             sku = item['SKU']
@@ -574,9 +601,19 @@ class StockBoy() :
             inventory_dict[sku] = {}
             row = inventory_dict[sku]
             row['SKU'] = sku
+            row['Stock'] = item['Stock']
             row['Last Cost'] = item['Last Cost']
             row['Avg Cost'] = item['Avg Cost']
-            row['Stock'] = item['Stock']
+
+            if 'SB Cost' in item :
+                row['SB Cost'] = item['SB Cost']
+                stock_value += item['Stock'] * item['SB Cost']
+                row['Stock Value'] = item['Stock'] * item['SB Cost']
+            elif row['Last Cost'] > row['Avg Cost'] :
+                row['Stock Value'] = row['Last Cost'] * row['Stock']
+            else :
+                row['Stock Value'] = row['Avg Cost'] * row['Stock']
+
             row['Allocated'] = item['Allocated']
             row['Available'] = item['Available']
 
@@ -587,12 +624,11 @@ class StockBoy() :
 
         inventory_dict['meta'] = {
         'sku_count': sku_count,
-        'total_stock' : total_stock
+        'total_stock' : total_stock,
+        'stock_value' : stock_value
         }
 
         self.results['inventory_dict'] = inventory_dict
-
-
 
     def FBADictBuilder(self) :
         #build address list
@@ -617,11 +653,11 @@ class StockBoy() :
                 fba_dict[sku] = {}
                 fba_dict[sku]['ASIN'] = asin
                 fba_dict[sku]['SellerSKU'] = item['SellerSKU']
-                fba_dict[sku]['TotalSupplyQty'] = int(item['TotalSupplyQuantity'])
+                fba_dict[sku]['InStockSupplyQty'] = int(item['InStockSupplyQuantity'])
                 fba_dict[sku]['Condition'] = item['Condition']
 
                 sku_count += 1
-                total_stock += int(item['TotalSupplyQuantity'])
+                total_stock += int(item['InStockSupplyQuantity'])
                 #fba_dict[asin]['afn-fulfillable-quantity'] = 0
                 #fba_dict[asin]['afn-warehouse-quantity'] = 0
                 #fba_dict[asin]['afn-total-quantity'] = 0
@@ -682,6 +718,9 @@ class StockBoy() :
     def SKUFlatten (self, sku):
 
         alias_dict = self.results['alias_dict']
+        if sku :
+            sku = sku.strip()
+
 
         if sku in alias_dict:
             sku = alias_dict[sku]
@@ -690,7 +729,6 @@ class StockBoy() :
             sku = 'sb-'+str(random.randint(123456,234567))
 
         return sku
-
 
     def AMZCheck(self, street1, state) :
 
@@ -738,7 +776,6 @@ class StockBoy() :
             pass
 
 ##Depreciated with strip microseconds
-
 
 
 ## To be depreciated
@@ -987,6 +1024,13 @@ class FileUploadForm(FlaskForm) :
     file = FileField(validators=[FileRequired()])
     submit = SubmitField('Upload')
 
+class InventoryCostForm(FlaskForm):
+    cost = DecimalField(places=2)
+    sku = HiddenField()
+
+###############
+### VIEWS #####
+###############
 
 
 class DashboardView(AdminIndexView):
@@ -1025,7 +1069,6 @@ class DashboardView(AdminIndexView):
 
         return self.render('admin/index.html', results=results)
 
-
 class ProfileView(BaseView):
     @expose('/', methods=('GET','POST'))
     @login_required
@@ -1057,7 +1100,7 @@ class ProfileView(BaseView):
             if ws.cell_value(0,0) != 'Inventory Status Report' :
                 flash('File does not match expected Inventory Stock Report format')
             else:
-                mongo.db.inventory.remove({"Owner":current_user.email})
+                #mongo.db.inventory.remove({"Owner":current_user.email})
                 col_len = len(ws.col(0))
                 r = 8
                 update_count = 0
@@ -1080,7 +1123,7 @@ class ProfileView(BaseView):
                     row['Available'] = ws.cell_value(r,8)
                     row['Reorder Threshold'] = ws.cell_value(r,9)
                     row['Owner'] = current_user.email
-                    mongo.db.inventory.update({'SKU':str(sku)},row,upsert=True)
+                    mongo.db.inventory.update({'SKU':str(sku)},{'$set': row},upsert=True)
                     r = r+1
                     update_count+=1
                 flash('Imported '+ str(update_count) + ' Inventory Stock Values')
@@ -1325,14 +1368,21 @@ class SalesView(BaseView):
 
         return self.render('admin/index.html', results=results)
 
-
 class InventoryView(BaseView):
-    @expose('/',methods=(['GET']))
+    @expose('/',methods=(['GET','POST']))
     @login_required
     def index(self):
         formvalue = 45
+        costform = InventoryCostForm(prefix='costform')
+
         if request.method == 'POST':
             formvalue = request.form.get('daterange')
+
+            if costform.validate_on_submit():
+                #mongo.mongo_user.update({'email':user['email']},{"$set":{'ss_lastupdated':now}},upsert=True)
+
+                mongo.db.inventory.update({'SKU':costform.sku.data},{"$set":{'SB Cost':float(costform.cost.data)}})
+                return jsonify(data={'message': 'Cost is {}'.format(costform.cost.data)})
 
         sb = StockBoy()
         sb.DateFormController(formvalue)
@@ -1347,21 +1397,21 @@ class InventoryView(BaseView):
         ]}
         )
 
+        ## Pull resources - 1 for loop each - look into session storage
         sb.ReportDictBuilder(cursor)
-        sb.ProductDictBuilder()
-        sb.SSInventoryBuilder()
-        sb.FBADictBuilder()
 
-
-        inventory_results_dict = {}
 
         ssd = sb.results['sku_sales_dict']
         fbad = sb.results['fba_dict']
         pd = sb.results['product_dict']
+
         total_sold = 0
         total_inventory = 0
         total_value = 0
         total_skus = 0
+
+        ## Final Results go here
+        inventory_results_dict = {}
 
         for item in sb.results['inventory_dict'].values() :
             if 'SKU' not in item :
@@ -1378,11 +1428,19 @@ class InventoryView(BaseView):
             stock = item['Stock']
             row['stock'] = stock
             if sku in fbad :
-                fba = fbad[sku]['TotalSupplyQty']
+                if 'InStockSupplyQty' in fbad[sku]:
+                    fba = fbad[sku]['InStockSupplyQty']
+                else :
+                    fba = fbad[sku]['TotalSupplyQty']
             else :
                 fba = 0
             row['fba'] = fba
-            row['cost'] = item['Last Cost']
+            ## Add Cost Logic (funciton call) Here
+            if 'SB Cost' in item:
+                row['cost'] = item['SB Cost']
+            else:
+                row['cost'] = item['Last Cost']
+
             if sku in ssd :
                 sold = ssd[sku]['qty']
             else :
@@ -1390,11 +1448,11 @@ class InventoryView(BaseView):
             row['sold'] = sold
 
             if sold > 1 :
-                burn = float(float(sold)/45.0)
+                burn = float(float(sold)/float(formvalue))
                 days = (stock+fba)/burn
 
             else :
-                days = 999999999999999
+                days = 9999
             row['days'] = days
 
             total_inventory += stock+fba
@@ -1416,13 +1474,11 @@ class InventoryView(BaseView):
         sb.results['top_bar'] = top_bar
         sb.results['inventory_results_dict'] = inventory_results_dict
 
-
-
         results = sb.results
 
 
 
-        return self.render('admin/inventory_index.html', results=results)
+        return self.render('admin/inventory_index.html', results=results, costform=costform)
 
     @expose('/fba',methods=('GET', 'POST'))
     def FBAInventory(self):
@@ -1523,7 +1579,7 @@ class InventoryView(BaseView):
             burn = float(qty_sold)/float(delta_range)
 
             if burn == 0:
-                inventory_days = 9999999
+                inventory_days = 9999
             else :
                 inventory_days = int(local_qty+amz_qty) / burn
 
@@ -1540,102 +1596,6 @@ class InventoryView(BaseView):
 
 
         return self.render('admin/inventory_index.html', items_chart=items_chart, top=top_bar)
-
-class FBAView(BaseView):
-    @expose('/',methods=(['GET']))
-    @login_required
-    def index(self):
-        sb = StockBoy()
-
-        ## Calculate Turn every X days (future user setting)
-        formvalue = 45
-        ## Target FBA days of inventory (future user setting)
-        fba_target = 30
-        ## Target Re-send frequency (future user setting)
-        fba_resend = 15
-
-        sb.DateFormController(formvalue)
-
-        cursor = mongo.db.orders.find(
-        {'$and':[
-            {'orderDate':
-                {'$lte': sb.results['end'],
-                '$gte':sb.results['start']}
-            },
-            {'owner':sb.results['email']}
-        ]}
-        )
-        sb.ReportDictBuilder(cursor)
-
-        fba_dict = sb.results['fba_dict']
-
-        ## Final Result
-        sku_sales_dict = sb.results['sku_sales_dict']
-        ## | UPC | Name | Amazon Qty (45 Days) | FBA Inventory | Days
-
-        fba_inventory_results_dict = {}
-        total_qty = 0
-        fba_skus = len(fba_dict)
-
-
-        for item in fba_dict :
-            if item == 'meta':
-                continue
-            # Match ASIN with SKU
-            sku = sb.SKUFlatten(item)
-            # Get Amazon Only Sales from SKU Sales Dict
-            if sku in sku_sales_dict :
-
-                amz_qty = int(sku_sales_dict[sku]['amz-qty'])
-                total_qty += amz_qty
-                supply = int(fba_dict[item]['TotalSupplyQty'])
-                amz_sales = sku_sales_dict[sku]['amz-sales']
-                name = sku_sales_dict[sku]['name']
-                img = sku_sales_dict[sku]['img']
-
-                if supply == 0 :
-                    days = 0
-
-                elif amz_qty == 0 :
-                    days = 9999999999
-                    recommended = 0
-
-                else :
-                    days = float(supply) / (float(amz_qty)/float(formvalue))
-
-                    recommended = ((fba_target + fba_resend) / formvalue * amz_qty) - supply
-                    if recommended <= 0 :
-                        recommended = 0
-
-
-            else :
-                amz_qty = 0
-                supply = int(fba_dict[item]['TotalSupplyQty'])
-                days = 9999999999
-                amz_sales = 0
-                name = '??'
-                img = '\#'
-                recommended = 0
-
-
-            fba_inventory_results_dict[sku] = {
-                'sku' : sku,
-                'asin' : item,
-                'name' : name,
-                'img' : img,
-                'amz-sales' : amz_sales,
-                'amz-qty': amz_qty,
-                'supply' : supply,
-                'days': days,
-                'recommended': recommended
-            }
-
-        sb.results['fba_inventory_results_dict'] = fba_inventory_results_dict
-        sb.results['top_bar']['fba_skus'] = fba_skus
-        sb.results['top_bar']['fba_total_qty'] = total_qty
-
-        return self.render('admin/fba_index.html', results=sb.results)
-
 
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
@@ -1703,7 +1663,6 @@ class ProductView(BaseView):
         max_values = max(sales_values)
         return self.render('admin/product_index.html',  top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
 
-
     @expose('/<string:target_sku>',methods=('GET', 'POST'))
     def Product(self, target_sku):
         formvalue = False
@@ -1729,13 +1688,155 @@ class ProductView(BaseView):
 
         sb.ReportDictBuilder(cursor)
 
-        sb.OrderedTogether(target_sku)
+        #sb.OrderedTogether(target_sku)
+        inv_stock_value = 0
+        item_cost = 0
+        available = 0
+        if target_sku in sb.results['inventory_dict'] :
+            inv_details = sb.results['inventory_dict'][target_sku]
+            available = sb.results['inventory_dict'][target_sku]['Available']
+            if 'SB Cost' in inv_details :
+                item_cost = inv_details['SB Cost']
+            elif inv_details['Last Cost'] > inv_details['Avg Cost']:
+                item_cost = inv_details['Last Cost']
+            else :
+                item_cost = inv_details['Avg Cost']
 
+            inv_stock_value = sb.results['inventory_dict'][target_sku]['Stock Value']
+
+        if target_sku in sb.results['fba_dict'] :
+            fba_stock = sb.results['fba_dict'][target_sku]['InStockSupplyQty']
+        else :
+            fba_stock = 0
+
+        total_stock_value = (item_cost*fba_stock) + inv_stock_value
+
+        sb.results['top_bar']['total_stock_value'] = total_stock_value
+        total_stock = fba_stock + available
+        sb.results['top_bar']['total_stock'] = total_stock
+        if target_sku in sb.results['sku_sales_dict'] :
+            sb.results['top_bar']['days'] = total_stock / sb.results['sku_sales_dict'][target_sku]['burn']
+        else :
+            sb.results['top_bar']['days'] = 9999.9
         results = sb.results
+
+        #session['results'] = jsonify(sb.results)
         #return self.render('admin/index.html', results=results)
 
 
         return self.render('admin/product_sku.html', results=results)
+
+
+class FBAView(BaseView):
+    @expose('/',methods=(['GET']))
+    @login_required
+    def index(self):
+        sb = StockBoy()
+
+        ## Calculate Turn every X days (future user setting)
+        formvalue = 44
+        ## Target FBA days of inventory (future user setting)
+        fba_target = 30
+        ## Target Re-send frequency (future user setting)
+        fba_resend = 15
+        ## Minimum inventory count
+        fba_minimum = 6
+
+        sb.DateFormController(formvalue)
+
+        cursor = mongo.db.orders.find(
+        {'$and':[
+            {'orderDate':
+                {'$lte': sb.results['end'],
+                '$gte':sb.results['start']}
+            },
+            {'owner':sb.results['email']}
+        ]}
+        )
+        sb.ReportDictBuilder(cursor)
+        sb.ProductDictBuilder()
+
+        fba_dict = sb.results['fba_dict']
+        product_dict = sb.results['product_dict']
+
+        ## Final Result
+        sku_sales_dict = sb.results['sku_sales_dict']
+        ## | UPC | Name | Amazon Qty (45 Days) | FBA Inventory | Days
+
+        fba_inventory_results_dict = {}
+        total_qty = 0
+        total_cost = 0
+        fba_skus = len(fba_dict)
+
+
+        for item in fba_dict :
+            if item == 'meta':
+                continue
+            # Match ASIN with SKU
+            sku = sb.SKUFlatten(item)
+            # Get Amazon Only Sales from SKU Sales Dict
+            name = None
+            if sku in product_dict :
+                name = product_dict[sku]['name']
+
+            if sku in sku_sales_dict :
+
+                amz_qty = int(sku_sales_dict[sku]['amz-qty'])
+                total_qty += amz_qty
+                supply = int(fba_dict[item]['InStockSupplyQty'])
+                amz_sales = sku_sales_dict[sku]['amz-sales']
+                if not name :
+                    name = sku_sales_dict[sku]['name']
+                img = sku_sales_dict[sku]['img']
+
+                if amz_qty == 0 :
+                    days = 9999
+                    recommended = 0
+
+                else :
+                    if supply == 0 :
+                        days = 0
+
+                    else :
+                        days = float(supply) / (float(amz_qty)/float(formvalue))
+
+                    total_target = fba_target + fba_resend
+                    ratio = float(total_target / formvalue)
+
+                    recommended = int(ratio * amz_qty - supply)
+
+                    if recommended <= 0 :
+                        recommended = 0
+
+
+            else :
+                if not name :
+                    name = 'Unable to determine product name'
+                amz_qty = 0
+                supply = int(fba_dict[item]['InStockSupplyQty'])
+                days = 9999
+                amz_sales = 0
+                img = '\#'
+                recommended = 0
+
+
+            fba_inventory_results_dict[sku] = {
+                'sku' : sku,
+                'asin' : item,
+                'name' : name,
+                'img' : img,
+                'amz-sales' : amz_sales,
+                'amz-qty': amz_qty,
+                'supply' : supply,
+                'days': days,
+                'recommended': recommended
+            }
+
+        sb.results['fba_inventory_results_dict'] = fba_inventory_results_dict
+        sb.results['top_bar']['fba_skus'] = fba_skus
+        sb.results['top_bar']['fba_total_qty'] = total_qty
+
+        return self.render('admin/fba_index.html', results=sb.results)
 
 class CustomerView(BaseView) :
     @expose('/',methods=('GET', 'POST'))
@@ -2005,7 +2106,9 @@ class ShipmentView(BaseView):
 
         return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
-
+#class AJAXHandler():
+#    @expose('/',methods=('POST'))
+#    @login_required
 
 
 ######################################

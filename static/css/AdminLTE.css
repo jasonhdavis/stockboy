@@ -325,6 +325,7 @@ a:focus {
 .content-header {
   position: relative;
   padding: 15px 15px 0 15px;
+	display: inline-block;
 }
 .content-header > h1 {
   margin: 0;
@@ -347,13 +348,12 @@ a:focus {
   font-weight: 300;
 }
 .content-header > .breadcrumb {
-  float: right;
+  float: left;
   background: transparent;
   margin-top: 0;
   margin-bottom: 0;
   font-size: 12px;
-  padding: 7px 5px;
-  position: absolute;
+  padding: 1em 5px;
   top: 15px;
   right: 10px;
   border-radius: 2px;
@@ -3274,21 +3274,15 @@ table.text-center th {
 }
 @media (max-width: 768px) {
 	
-body div.daterangepicker {
-	width: 270px !important;
-}
+
 	
 div.date-picker {
-	margin-top: 1rem !important;
-	float: none !important;
-	height: 6rem !important;
+	margin: 0 !important;
 }
 
 table#dtBasicExample {
 	visibility: visible;
 	overflow: scroll;
-	display: block;
-	
 }
 
 .login-box,
@@ -5591,34 +5585,32 @@ div.alert button.close {
 
 /* @group DatePicker */
 
-div.daterangepicker  {
-	color: #000 !important;
-	display: none;
-	float: left;
-}
-
 .content-header div.date-picker {
+	display: inline-block;
 	float: right;
-	margin-top: -5rem;
+	width: 30rem;
+	margin-top: -3rem;
 }
 
-.content-header div.date-picker input {
-	float: left;
-	clear: none;
-	width: 70%;
+.content-header div.date-picker input.form-control {
+	padding-right: 8rem;
 }
 
 .content-header .date-picker input#date-submit, button {
+	width: 15%;
+	margin-top: -3.5rem;
 	float: right;
-	 width: 25%;
-	height: 3.5rem;
-	margin-left: 2%;
-	margin-top: 0;
+	z-index: 1000000;
+	margin-bottom: 0;
+	padding-top: .25em;
+	padding-bottom: .25em;
 }
 
-    div.daterangepicker .ranges ul {float: left !important;}
+.daterangepicker{
+	width: 63rem !important;
+}
 
-div.daterangepicker {width: 645px !important;}
+/* My Comment */
 
 /* @end */
 
@@ -5839,6 +5831,16 @@ button.bg-dark:focus {
 
 .table-striped tbody tr.odd {
   background-color: #fff !important;
+}
+.table td form input {
+	float: right;
+}
+
+.table td form input {
+	width: 85%;
+	text-align: right;
+	margin-top: -1.75em;
+	padding-right: 5px;
 }
 
 

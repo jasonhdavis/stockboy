@@ -4,25 +4,65 @@
 
 {% if current_user.is_authenticated %}
 
-<!-- Content Header (Page header) -->
+{% set ssd = results['sku_sales_dict']  %}
+{% set sku = results['target_sku'] %}
+{% set fba_dict = results['fba_dict'] %}
+{% set inventory_dict = results['inventory_dict'] %}
+{% set product_dict = results['product_dict'] %}
+{% set top_bar = results['top_bar']  %}
+
+
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    {% set ssd = results['sku_sales_dict']  %}
-    {% set sku = results['target_sku'] %}
-    <img class="product-image" width="150px" src="{{ssd[sku]['img']}}">
-    <h1>{{ssd[sku]['name']}}<br>
-  </h1>
   <ol class="breadcrumb">
     <li><a href="../../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
     <li><a href="../"><i class="fa fa-shopping-bag"></i>Products</a></li>
     <li class="active">{{sku}}</li>  </ol>
-  {% include 'admin/daterange.html' %}
 
-</section>
-<section>
-  <h2>Product Details</h2>
-  <h5>Category: {{ssd[sku]['category']}}</h5>
+    <h1 style="clear:both;">
+      {% if sku in ssd %}<img class="product-image float-left" width="150px" src="{{ssd[sku]['img']}}">{% endif %}
+      {{product_dict[sku]['name']}}
+    </h1>
+    <h4>Inventory Days: {{"{:,.1f}".format(top_bar['days']) }}</h4>
+    {% include 'admin/daterange.html' %}
+
+<hr style="clear:both;">
+<h2>Product Details</h2>
+<div class="col-sm-4 float-left">
+  <h4>Listing</h4>
+  <h5>Created: {{product_dict[sku]['createDate']}}</h5>
+  <h5>Category: {{product_dict[sku]['productCategory']['name']}}</h5>
+  <h5>Weight: {{product_dict[sku]['weight']}}</h5>
+  <h5>Dimensions: {{product_dict[sku]['height']}} x {{product_dict[sku]['width']}} x {{product_dict[sku]['length']}}</h5>
+  </div>
+  <div class="col-sm-4 float-left">
+  <h4>Inventory</h4>
+  {% if sku in inventory_dict.keys() %}
+  {% if 'SB Cost' in inventory_dict.keys() %}
+  <h5>Cost: ${{inventory_dict[sku]['SB Cost']}}</h5>
+  {% endif %}
+  <h5>Local Stock: {{"{:,.0f}".format(inventory_dict[sku]['Available'])}}</h5>
+  {% endif %}
+
+  <h5>Stock Value: ${{"{:,.2f}".format(results['top_bar']['total_stock_value'])}} </h5>
+
+  {% if sku in fba_dict %}
+  <h5>ASIN: <a href="https://www.amazon.com/gp/product/{{fba_dict[sku]['ASIN']}}">{{fba_dict[sku]['ASIN']}}</a></h5>
+  <h5>FBA Network In stock: {{fba_dict[sku]['InStockSupplyQty']}}</h5>
+  <h5>Fullfillment SKU: {{fba_dict[sku]['SellerSKU']}} </h5>
+  {% endif %}
+
+  </div>
+  <div class="col-sm-4 float-left">
+    <h4>Purchasing</h4>
+    <h5>Supplier: </h5>
+    <h5>Model #: </h5>
+    <h5>Lead Time: </h5>
+    <h5>Min Order Qty: </h5>
+    <!--<h5>Ignore Restock Alerts:</h5>-->
+    <h5>Notes:</h5>
+  </div>
 </section>
 
 
@@ -31,16 +71,28 @@
   <!--TOP BAR STAT BOXES -->
   <div class="row">
 {% import 'admin/parts.html' as parts %}
+  {% if sku in ssd %}
   {% set value = '$'+ "{:,.2f}".format(results['sku_sales_dict'][sku]['sales']) %}
-
   {{ parts.smallbox('Sales', value=value, color='bg-success' )}}
+
+  {{ parts.smallbox('Qty Sold', value="{:,}".format(results['sku_sales_dict'][sku]['qty']), color='bg-info' )}}
+
+  {{ parts.smallbox('Shipped to Amazon', value="{:,}".format(results['top_bar']['shipped_to_amz']), color='bg-warning' )}}
+
+  {{ parts.smallbox('Avg. Qty / Day', value="{:,.2f}".format(results['sku_sales_dict'][sku]['burn']), color='bg-danger' )}}
+
+
+  {% else %}
+  {{ parts.smallbox('Sales', value='0', color='bg-success' )}}
+  {{ parts.smallbox('Qty Sold', value='0', color='bg-info' )}}
+  {{ parts.smallbox('Shipped to Amazon', value="{:,}".format(results['top_bar']['shipped_to_amz']), color='bg-warning' )}}
+  {{ parts.smallbox('Avg. Qty / Day', value='0', color='bg-danger' )}}
+
+
+  {% endif %}
+
 <!-- ./col -->
 
-{{ parts.smallbox('Qty Sold', value="{:,}".format(results['sku_sales_dict'][sku]['qty']), color='bg-info' )}}
-
-{{ parts.smallbox('Shipped to Amazon', value="{:,}".format(results['top_bar']['shipped_to_amz']), color='bg-warning' )}}
-
-{{ parts.smallbox('Avg. Qty / Day', value="{:,.2f}".format(results['sku_sales_dict'][sku]['burn']), color='bg-danger' )}}
 
 </div>
         <!-- /.row -->

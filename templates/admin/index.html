@@ -5,10 +5,7 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>
-      Dashboard<br>
-    <small>Top-level stats to give you an overview of your sales, shipments, products & customers</small>
-  </h1>
+    <h1>Dashboard</h1>
   <ol class="breadcrumb">
       <li class="active"><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
   </ol>
@@ -30,6 +27,7 @@
 {{ parts.smallbox('Discounts', value="${:,.2f}".format(results['top_bar']['discounts']), color='bg-warning' )}}
 
 {{ parts.smallbox('Average Burn Rate', value=results['top_bar']['avg_burn'], color='bg-danger' )}}
+
 <a class="float-right" href="/dashboard/sales">See More Sales > </a>
 </div>
 <!-- /.row -->
