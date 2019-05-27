@@ -10,23 +10,22 @@
       <li class="active"><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
   </ol>
   {% include 'admin/daterange.html' %}
-
 </section>
 
 <section class="content">
   <h2>Sales</h2>
   <!--TOP BAR STAT BOXES -->
   <div class="row">
-  {% set value = "${:,.2f}".format(results['top_bar']['gross_sales']) %}
+  {% set value = "${:,.2f}".format(session['top_bar']['gross_sales']) %}
 
   {{ parts.smallbox('Gross Sales', value=value, color='bg-success' )}}
 <!-- ./col -->
 
-{{ parts.smallbox('Shipping Charged', value="${:,.2f}".format(results['top_bar']['shipping']), color='bg-info' )}}
+{{ parts.smallbox('Shipping Charged', value="${:,.2f}".format(session['top_bar']['shipping']), color='bg-info' )}}
 
-{{ parts.smallbox('Discounts', value="${:,.2f}".format(results['top_bar']['discounts']), color='bg-warning' )}}
+{{ parts.smallbox('Discounts', value="${:,.2f}".format(session['top_bar']['discounts']), color='bg-warning' )}}
 
-{{ parts.smallbox('Average Burn Rate', value=results['top_bar']['avg_burn'], color='bg-danger' )}}
+{{ parts.smallbox('Average Burn Rate', value=session['top_bar']['avg_burn'], color='bg-danger' )}}
 
 <a class="float-right" href="/dashboard/sales">See More Sales > </a>
 </div>
@@ -48,13 +47,13 @@
     </thead>
     <tbody >
 
-      {% for sku in results['sku_sales_sort'] %}
+      {% for sku in session['sku_sales_sort'] %}
         <tr>
-            <td><a href="./product/{{results['sku_sales_dict'][sku[0]]['sku']}}">{{results['sku_sales_dict'][sku[0]]['sku']}}</a></td>
-            <td width="50%">{{results['sku_sales_dict'][sku[0]]['name']}}</td>
-            <td width="10%">{{ "{:,}".format(results['sku_sales_dict'][sku[0]]['qty']) }}</td>
-            <td width="10%">${{ "{:,.2f}".format(results['sku_sales_dict'][sku[0]]['sales']) }}</td>
-            <td width="10%">{{ "{:,.2f}".format(results['sku_sales_dict'][sku[0]]['burn']) }}</td>
+            <td><a href="./product/{{session['sku_sales_dict'][sku[0]]['sku']}}">{{session['sku_sales_dict'][sku[0]]['sku']}}</a></td>
+            <td width="50%">{{session['sku_sales_dict'][sku[0]]['name']}}</td>
+            <td width="10%">{{ "{:,}".format(session['sku_sales_dict'][sku[0]]['qty']) }}</td>
+            <td width="10%">${{ "{:,.2f}".format(session['sku_sales_dict'][sku[0]]['sales']) }}</td>
+            <td width="10%">{{ "{:,.2f}".format(session['sku_sales_dict'][sku[0]]['burn']) }}</td>
 
         </tr>
         {% endfor %}
@@ -94,7 +93,7 @@
 
       var saleschartdata = {
         labels : [
-        {% for label in results['date_range_labels']%}
+        {% for label in session['date_range_labels']%}
         "{{ label }}",
         {% endfor %}
       ],
@@ -107,7 +106,7 @@
           pointPadding: 1,
           lineTension: 0.25,
           data : [
-          {% for year in results['by_day_dict'].values() %}
+          {% for year in session['by_day_dict'].values() %}
           {% for month in year.values() %}
           {% for day in month.values() %}
             {{ day['sales'] }},
@@ -122,7 +121,7 @@
             backgroundColor: "rgba(56, 96, 175, 1)",
 
             data: [
-            {% for year in results['by_day_dict'].values() %}
+            {% for year in session['by_day_dict'].values() %}
             {% for month in year.values() %}
             {% for day in month.values() %}
               {{ day['qty'] }},
@@ -137,7 +136,7 @@
           backgroundColor: "rgba(254, 167, 112, 1)",
 
           data: [
-          {% for year in results['by_day_dict'].values() %}
+          {% for year in session['by_day_dict'].values() %}
           {% for month in year.values() %}
           {% for day in month.values() %}
             {{ day['fba'] }},
@@ -190,8 +189,8 @@
 
     </script>
 
-    {{ parts.piechart(dict=results['store_sales_dict'], element='marketplace') }}
-    {{ parts.piechart(dict=results['category_sales_dict'], element='categories') }}
+    {{ parts.piechart(dict=session['store_sales_dict'], element='marketplace') }}
+    {{ parts.piechart(dict=session['category_sales_dict'], element='categories') }}
 
 
 {% endblock tail %}

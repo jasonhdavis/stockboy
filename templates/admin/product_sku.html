@@ -4,12 +4,11 @@
 
 {% if current_user.is_authenticated %}
 
-{% set ssd = results['sku_sales_dict']  %}
-{% set sku = results['target_sku'] %}
-{% set fba_dict = results['fba_dict'] %}
-{% set inventory_dict = results['inventory_dict'] %}
-{% set product_dict = results['product_dict'] %}
-{% set top_bar = results['top_bar']  %}
+{% set ssd = session['sku_sales_dict']  %}
+{% set fba_dict = session['fba_dict'] %}
+{% set inventory_dict = session['inventory_dict'] %}
+{% set product_dict = session['product_dict'] %}
+{% set top_bar = session['top_bar']  %}
 
 
 
@@ -25,19 +24,22 @@
       {{product_dict[sku]['name']}}
     </h1>
     <h4>Inventory Days: {{"{:,.1f}".format(top_bar['days']) }}</h4>
-    {% include 'admin/daterange.html' %}
+    <h4>Lifetime Sales: </h4>
+    <h4>Lifetime Qty: </h4>
+    <h4>Lifetime Gross Profit: </h4>
 
-<hr style="clear:both;">
+    {% include 'admin/daterange.html' %}
+    <br><br><hr style="clear:both;"><br>
 <h2>Product Details</h2>
 <div class="col-sm-4 float-left">
-  <h4>Listing</h4>
+  <h4 style="border-bottom:#000 1px solid">Listing</h4>
   <h5>Created: {{product_dict[sku]['createDate']}}</h5>
   <h5>Category: {{product_dict[sku]['productCategory']['name']}}</h5>
   <h5>Weight: {{product_dict[sku]['weight']}}</h5>
   <h5>Dimensions: {{product_dict[sku]['height']}} x {{product_dict[sku]['width']}} x {{product_dict[sku]['length']}}</h5>
   </div>
   <div class="col-sm-4 float-left">
-  <h4>Inventory</h4>
+  <h4 style="border-bottom:#000 1px solid">Inventory</h4>
   {% if sku in inventory_dict.keys() %}
   {% if 'SB Cost' in inventory_dict.keys() %}
   <h5>Cost: ${{inventory_dict[sku]['SB Cost']}}</h5>
@@ -45,7 +47,7 @@
   <h5>Local Stock: {{"{:,.0f}".format(inventory_dict[sku]['Available'])}}</h5>
   {% endif %}
 
-  <h5>Stock Value: ${{"{:,.2f}".format(results['top_bar']['total_stock_value'])}} </h5>
+  <h5>Stock Value: ${{"{:,.2f}".format(session['top_bar']['total_stock_value'])}} </h5>
 
   {% if sku in fba_dict %}
   <h5>ASIN: <a href="https://www.amazon.com/gp/product/{{fba_dict[sku]['ASIN']}}">{{fba_dict[sku]['ASIN']}}</a></h5>
@@ -55,7 +57,7 @@
 
   </div>
   <div class="col-sm-4 float-left">
-    <h4>Purchasing</h4>
+    <h4 style="border-bottom:#000 1px solid">Purchasing</h4>
     <h5>Supplier: </h5>
     <h5>Model #: </h5>
     <h5>Lead Time: </h5>
@@ -72,20 +74,20 @@
   <div class="row">
 {% import 'admin/parts.html' as parts %}
   {% if sku in ssd %}
-  {% set value = '$'+ "{:,.2f}".format(results['sku_sales_dict'][sku]['sales']) %}
+  {% set value = '$'+ "{:,.2f}".format(session['sku_sales_dict'][sku]['sales']) %}
   {{ parts.smallbox('Sales', value=value, color='bg-success' )}}
 
-  {{ parts.smallbox('Qty Sold', value="{:,}".format(results['sku_sales_dict'][sku]['qty']), color='bg-info' )}}
+  {{ parts.smallbox('Qty Sold', value="{:,}".format(session['sku_sales_dict'][sku]['qty']), color='bg-info' )}}
 
-  {{ parts.smallbox('Shipped to Amazon', value="{:,}".format(results['top_bar']['shipped_to_amz']), color='bg-warning' )}}
+  {{ parts.smallbox('Shipped to Amazon', value="{:,}".format(session['top_bar']['shipped_to_amz']), color='bg-warning' )}}
 
-  {{ parts.smallbox('Avg. Qty / Day', value="{:,.2f}".format(results['sku_sales_dict'][sku]['burn']), color='bg-danger' )}}
+  {{ parts.smallbox('Avg. Qty / Day', value="{:,.2f}".format(session['sku_sales_dict'][sku]['burn']), color='bg-danger' )}}
 
 
   {% else %}
   {{ parts.smallbox('Sales', value='0', color='bg-success' )}}
   {{ parts.smallbox('Qty Sold', value='0', color='bg-info' )}}
-  {{ parts.smallbox('Shipped to Amazon', value="{:,}".format(results['top_bar']['shipped_to_amz']), color='bg-warning' )}}
+  {{ parts.smallbox('Shipped to Amazon', value="{:,}".format(session['top_bar']['shipped_to_amz']), color='bg-warning' )}}
   {{ parts.smallbox('Avg. Qty / Day', value='0', color='bg-danger' )}}
 
 
@@ -111,7 +113,7 @@
                 </tr>
             </thead>
             <tbody >
-              {% for store in results['store_sales_dict'].values() %}
+              {% for store in session['store_sales_dict'].values() %}
                 <tr>
                     <td width="25%">{{store['name']}}</td>
                     <td width="15%">{{store['qty']}}</td>
@@ -125,7 +127,7 @@
           <div class="col-md-6 col-6">
             <canvas id="pie_chart_markets"></canvas>
           </div>
-          {{ results['ordered_with'] }}
+          {{ session['ordered_with'] }}
 </div>
 
     </section>
@@ -176,7 +178,7 @@
   {% block tail %}
 
   {{ parts.chartglobals() }}
-  {{ parts.piechart(dict=results['store_sales_dict'], label_key='name', value_key='sales', element="markets")}}
+  {{ parts.piechart(dict=session['store_sales_dict'], label_key='name', value_key='sales', element="markets")}}
   <script>
       // line chart canvas
       var mychart = document.getElementById("chart").getContext("2d");
@@ -194,7 +196,7 @@
 
               var lineData = {
                 labels : [
-                  {% for label in results['date_range_labels'] %}
+                  {% for label in session['date_range_labels'] %}
                     '{{ label }}',
                   {% endfor %}
                 ],
@@ -206,7 +208,7 @@
                   lineTension: 0.3,
 
                   data : [
-                  {% for year in results['by_day_dict'].values() %}
+                  {% for year in session['by_day_dict'].values() %}
                   {% for month in year.values() %}
                   {% for day in month.values() %}
                     {{ day['sales'] }},

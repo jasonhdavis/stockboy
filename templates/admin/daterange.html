@@ -1,5 +1,5 @@
 
-<div class="date-picker col-4 float-right">
+<div class="date-picker col-6 float-right">
     <form id ='daterangeform' action="#" method="post">
       <label for="daterange"  class="col-form-label">Select Date Range</label>
         <input autocomplete="off" class="form-control" type="text" name="daterange" >
@@ -18,8 +18,8 @@
         },
             "alwaysShowCalendars": true,
             "autoApply": true,
-            "startDate": "{{ results['start_date'] }}",
-            "endDate": "{{ results['end_date'] }}"
+            "startDate": "{{ session['start_date'] }}",
+            "endDate": "{{ session['end_date'] }}"
         }, function(start, end, label) {
           $('#daterangeform submit').click()
         });

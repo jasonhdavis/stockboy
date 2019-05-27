@@ -1,293 +1,138 @@
 {% extends 'admin/master.html' %}
 {% block body %}
 {{ super() }}
-{% if current_user.is_authenticated %}
 
 
 <!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>Sales Channels</h1>
+  <ol class="breadcrumb">
+      <li class="active"><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+      <li><a href="../"><i class="fa fa-chart"></i>Sales</a></li>
+  </ol>
+  {% include 'admin/daterange.html' %}
+</section>
 
 <section class="content">
-
+  <h2>Sales</h2>
+  <!--TOP BAR STAT BOXES -->
   <div class="row">
-    <!-- Left col -->
-    <section class="container">
-        <section class="content-header">
-          <ol class="breadcrumb">
-              <li><a href="#"><i class="fa fa-dashboard"></i> Home</a></li>
-              <li class="active">Dashboard</li>
-          </ol>
+  {% set value = "${:,.2f}".format(session['top_bar']['gross_sales']) %}
 
-          <div class="date-picker col-xs-3">
-            <form id ='daterangeform' action="{{url_for('sales.index')}}" method="post">
-              <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-                <input autocomplete="off" class="form-control" type="text" name="daterange" >
-                <input type="submit" name="submit" id="date-submit" value="Go">
-            </form>
-            <script>
-            $(function() {
-              $('input[name="daterange"]').daterangepicker({
-                ranges: {
-                'Today': [moment(), moment()],
-                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-            },
-                "alwaysShowCalendars": true,
-                "autoApply": true,
-                "startDate": "{{startdate}}",
-                "endDate": "{{enddate}}"
-            }, function(start, end, label) {
-              $('#daterangeform submit').click()
-            });
-            });
-            </script>
-        </div>
+  {{ parts.smallbox('Gross Sales', value=value, color='bg-success' )}}
+<!-- ./col -->
 
-      <div class="col-lg-12">
+{{ parts.smallbox('Shipping Charged', value="${:,.2f}".format(session['top_bar']['shipping']), color='bg-info' )}}
 
-        <h1>Sales</h1>
-          <small>Total order value (including shipping) combined by product alias</small>
-        </div>
-        </section>
-        <section class="content">
-          <!-- Small boxes (Stat box) -->
-          <div class="row">
-            <div class="col-lg-3 col-xs-6">
-              <!-- small box -->
-              <div class="small-box bg-success">
-                <div class="inner">
-                  <h3>${{ "{:,.2f}".format(top[0]) }}</h3>
-                  <p>Sales</p>
-              </div>
-              <div class="icon">
-                  <i class="ion ion-pricetag"></i>
-              </div>
-              <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-          </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-info">
-            <div class="inner">
-              <h3>{{"{:,}".format(top[1])}}</h3>
+{{ parts.smallbox('Discounts', value="${:,.2f}".format(session['top_bar']['discounts']), color='bg-warning' )}}
 
-              <p>Qty Sold</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-stats-bars"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-warning">
-            <div class="inner">
-              <h3>{{"{:,}".format(top[2])}}</h3>
+{{ parts.smallbox('Average Burn Rate', value=session['top_bar']['avg_burn'], color='bg-danger' )}}
 
-              <p>Transfer to Amazon</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-filing"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-danger">
-            <div class="inner">
-              <h3>{{"{:,}".format(top[3])}}</h3>
+<a class="float-right" href="/dashboard/sales">See More Sales > </a>
+</div>
+<!-- /.row -->
+<!-- Main row -->
+<div class="row">
+  <canvas id='line_chart_sales_qty'></canvas>
 
-              <p>Burn Rate</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-bonfire"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        </div>
-        <!-- /.row -->
-        <!-- Main row -->
-        <div class="row">
-          <canvas id="chart"></canvas>
-          <button onclick="exportTableToCSV('stockboy-report.csv')"><i class="fa fa-download"></i> CSV</button>
-          <table id="sortable-chart" class="table table-striped table-bordered table-sm">
-            <thead>
-                <tr>
-                    <th class="th-sm">Sku</th>
-                    <th class="th-sm">Name</th>
-                    <th class="th-sm">Sales</th>
-                    <th class="th-sm">QTY</th>
-                    <th class="th-sm">Daily Burn Rate</th>
-                </tr>
-            </thead>
-            <tbody >
-              {% for item in orders %}
-                <tr>
-                    <td>{{item[0]}}</td>
-                    <td width="50%"><a href="../product/{{item[0]}}">{{item[1]}}</a></td>
-                    <td width="10%">{{item[2]}}</td>
-                    <td width="10%">{{item[3]}}</td>
-                    <td width="10%">{{item[4]}}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-          </div>
+<div class="col-md-6 col-6">
+<canvas id="pie_chart_marketplace"></canvas>
 
-    </section>
-    <!-- /.Left col -->
+</div>
+</div>
 
-  </div>
-  <!-- /.row (main row) -->
 
-</section>
-<!-- /.content -->
 
-  {% endif %}
 
-  {% endblock body %}
 
-  {% block tail %}
+{% endblock body %}
+{% block tail %}
+
+{{ parts.chartglobals() }}
 
     <script>
-      Chart.defaults.global.animationSteps = 25;
-      Chart.defaults.global.tooltips.YPadding = 50;
-      Chart.defaults.global.tooltips.titleFontSize = 20;
-      Chart.defaults.global.tooltips.bodyFontSize = 20;
-      Chart.defaults.global.tooltips.displayColors = false;
-      Chart.defaults.global.tooltips.CornerRadius = 2;
-      Chart.defaults.global.tooltips.TitleFontStyle = "normal";
-      Chart.defaults.global.tooltips.FillColor = "rgba(0,0,0,0.8)";
-      Chart.defaults.global.animationEasing = "linear";
-      Chart.defaults.global.responsive = true;
-
       // line chart canvas
-      var mychart = document.getElementById("chart").getContext("2d");
+      var saleschartelement = document.getElementById('line_chart_sales_qty').getContext('2d');
 
-
-      var gradientFill = mychart.createLinearGradient(0,500,0,300);
+      var gradientFill = saleschartelement.createLinearGradient(0,500,0,300);
       gradientFill.addColorStop(0, "rgba(56, 96, 175, 0.5)");
       gradientFill.addColorStop(1, "rgba(56, 96, 175, 0.7)");
-      // draw bar chart
-      //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-      //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
-      //gradientFill.addColorStop(0, "rgba(84,184,143,0.6)");
-      //gradientFill.addColorStop(1, "rgba(128, 182, 244, 0.6)");
 
-      var lineData = {
+
+      var saleschartdata = {
         labels : [
-          {% for label in labels %}
-            '{{ label }}',
-          {% endfor %}
-        ],
-        datasets : [{
+        {% for label in session['date_range_labels']%}
+        "{{ label }}",
+        {% endfor %}
+      ],
+        datasets : [
+        {% for marketplace in session['marketplaces_with_sales'] %}
+        {
+          type: 'line',
+          label:'{{marketplace}}',
           backgroundColor: gradientFill,
-          pointBackgroundColor: "rgba(56, 96, 175, 1)",
+          pointBackgroundColor: "rgba(56, 96, 175, .8)",
           pointRadius:3,
-          pointPadding: 3,
-          lineTension: 0.3,
-
-
+          pointPadding: 1,
+          lineTension: 0.25,
           data : [
-      {% for value in values %}
-              {{ value }},
-            {% endfor %}]
-          }
-  ]
-      }
-      var LineChartDemo = new Chart(mychart, {
-        type:'line',
-        data:lineData,
-        options: {
-        pointHitRadius: 100,
-        scaleShowVerticalLines: true,
-        scaleShowGridLines : true,
-        barShowStroke : true,
-        scaleShowLabels: true,
-        bezierCurve: false,
-        responsive: true,
-        legend:{
-          display: false,
-        },
-        scales: {
-          yAxes:[{
-            ticks:{
+          {% for year in session['by_day_dict'].values() %}
+            {% for month in year.values() %}
+              {% for day in month.values() %}
+                {%  if marketplace in day['channel'] %}
+                  {{ day['channel'][marketplace]['sales'] }},
+                {% else %}
+                  0,
+                {%endif%}
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+        ]},
+          {% endfor %}
+          ]
+        };
 
-              beginAtZero: true
-            }
-          }]
-        },
-        tooltips: {
-             callbacks: {
-                 label: function(tooltipItems, data) {
-                     return '$' +tooltipItems.yLabel.toFixed(2);
-                 }
-             }
-         }
-      }
+              var sales_qty_chart =  {
+                type:'bar',
+                data:saleschartdata,
+                options: {
+                  pointHitRadius: 100,
+                  scaleShowVerticalLines: true,
+                  scaleShowGridLines : true,
+                  barShowStroke : true,
+                  scaleShowLabels: true,
+                  bezierCurve: false,
+                  responsive: true,
+                  legend:{
+                    display: false,
+                  },
+                  scales: {
+                    yAxes:[{
+                      ticks:{
 
-      });
+                        beginAtZero: true
+                      }
+                    }]
+                  },
+                  tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor:'rgba(38,38,38,1)',
 
+                    cornerRadius: 0,
+                    bodyFontSize: 16,
+                    titleFontSize: 20,
+                    borderColor:'rgba(0,0,0,.5)',
+                    borderWidth:1
+                   }
+                }
 
-
-
+                };
+      var SalesQtyChart = new Chart(saleschartelement,sales_qty_chart)
 
     </script>
-    <script>
-    function downloadCSV(csv, filename) {
-        var csvFile;
-        var downloadLink;
-        // CSV file
-        csvFile = new Blob([csv], {type: "text/csv"});
-        // Download link
-        downloadLink = document.createElement("a");
-        // File name
-        downloadLink.download = filename;
-        // Create a link to the file
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        // Hide download link
-        downloadLink.style.display = "none";
-        // Add the link to DOM
-        document.body.appendChild(downloadLink);
-        // Click download link
-        downloadLink.click();
-    }
-          function exportTableToCSV(filename) {
-              var csv = [];
-              var rows = document.querySelectorAll("table tr");
-              for (var i = 0; i < rows.length; i++) {
-                  var row = [], cols = rows[i].querySelectorAll("td, th");
-                  for (var j = 0; j < cols.length; j++)
-                      row.push('"'+cols[j].innerText+'"');
-                  csv.push(row.join(","));
-              }
-              // Download CSV file
-              downloadCSV(csv.join("\n"), filename);
-          }
-    </script>
-  <script>
-    $(document).ready(function () {
-    var table = $('#sortable-chart').DataTable({
-       "paging": false, // false to disable pagination (or any other option)
-       "order":[[3, "desc"]],
-       "responive": true,
-       "language":{
-         "search":"",
-         "searchPlaceholder":"Search. . ."
-        }
-        });
-        new $.fn.dataTable.FixedHeader( table );
-    $('.dataTables_length').addClass('bs-select');
 
-  });
-  </script>
-  {% endblock tail %}
+    {{ parts.piechart(dict=session['store_sales_dict'], element='marketplace') }}
+
+
+{% endblock tail %}

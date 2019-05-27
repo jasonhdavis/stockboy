@@ -26,7 +26,7 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{results['top_bar']['fba_total_qty']}}</h3>
+                  <h3>{{session['top_bar']['fba_total_qty']}}</h3>
                   <p>Total Inventory</p>
               </div>
               <div class="icon">
@@ -55,7 +55,7 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{results['top_bar']['fba_skus']}}</h3>
+              <h3>{{session['top_bar']['fba_skus']}}</h3>
 
               <p>SKUs</p>
           </div>
@@ -93,8 +93,8 @@
                     <th class="th-sm">Sku</th>
                     <th class="th-sm">Name</th>
                     <th class="th-sm">FBA Supply</th>
-                    <th class="th-sm">Qty Sold ({{results['delta_range']}} Days)</th>
-                    <th class="th-sm">Sales ({{results['delta_range']}} Days)</th>
+                    <th class="th-sm">Qty Sold ({{session['delta_range']}} Days)</th>
+                    <th class="th-sm">Sales ({{session['delta_range']}} Days)</th>
                     <th class="th-sm">Days</th>
                     <th class="th-sm">Recommended</th>
 
@@ -102,16 +102,16 @@
                 </tr>
             </thead>
             <tbody >
-              {% for item in results['fba_inventory_results_dict'] %}
+              {% for item in session['fba_inventory_results_dict'] %}
                 <tr>
                     <td>{{item}}<br>
-                    <img src="{{results['fba_inventory_results_dict'][item]['img']}}" widht=100 height=100></td>
-                    <td width="50%"><a href="../product/{{item}}">{{results['fba_inventory_results_dict'][item]['name']}}</a></td>
-                    <td width="10%">{{results['fba_inventory_results_dict'][item]['supply']}}</td>
-                    <td width="10%">{{results['fba_inventory_results_dict'][item]['amz-qty']}}</td>
-                    <td width="10%">${{"{:,.2f}".format(results['fba_inventory_results_dict'][item]['amz-sales'])}}</td>
-                    <td width="10%">{{"{:,.1f}".format(results['fba_inventory_results_dict'][item]['days'])}}</td>
-                    <td width="10%">{{results['fba_inventory_results_dict'][item]['recommended']}}</td>
+                    <img src="{{session['fba_inventory_results_dict'][item]['img']}}" widht=100 height=100></td>
+                    <td width="50%"><a href="../product/{{item}}">{{session['fba_inventory_results_dict'][item]['name']}}</a></td>
+                    <td width="10%">{{session['fba_inventory_results_dict'][item]['supply']}}</td>
+                    <td width="10%">{{session['fba_inventory_results_dict'][item]['amz-qty']}}</td>
+                    <td width="10%">${{"{:,.2f}".format(session['fba_inventory_results_dict'][item]['amz-sales'])}}</td>
+                    <td width="10%">{{"{:,.1f}".format(session['fba_inventory_results_dict'][item]['days'])}}</td>
+                    <td width="10%">{{session['fba_inventory_results_dict'][item]['recommended']}}</td>
 
                 </tr>
                 {% endfor %}

@@ -13,7 +13,6 @@
     <section class="container">
         <section class="content-header">
                 <h1>Inventory</h1>
-                  <small>Current Stock Levels, Sell-Through Rate, Inventory Value & Days of Inventory</small>
           <ol class="breadcrumb">
               <li><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
               <li class="active">Inventory</li>
@@ -26,7 +25,7 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{ "{:,.0f}".format(results['top_bar']['total_inventory']) }}</h3>
+                  <h3>{{ "{:,.0f}".format(session['top_bar']['total_inventory']) }}</h3>
                   <p>Total Inventory</p>
               </div>
               <div class="icon">
@@ -40,7 +39,7 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{"{:,.2f}".format(results['top_bar']['total_value'])}}</h3>
+              <h3>${{session['top_bar']['total_value']}}</h3>
 
               <p>Inventory Value</p>
           </div>
@@ -55,7 +54,7 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{results['top_bar']['total_skus']}}</h3>
+              <h3>{{session['top_bar']['total_skus']}}</h3>
 
               <p>SKUs</p>
           </div>
@@ -70,7 +69,7 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{"{:,.1f}".format(results['top_bar']['total_days'])}}</h3>
+              <h3>{{"{:,.1f}".format(session['top_bar']['total_days'])}}</h3>
               <p>Avg. Days</p>
           </div>
           <div class="icon">
@@ -94,7 +93,7 @@
                     <th class="th-sm">Local Stock</th>
                     <th class="th-sm">Avg Cost</th>
                     <th class="th-sm">Amz Warehouse</th>
-                    <th class="th-sm">Qty Sold ({{results['delta_range']}} Days)</th>
+                    <th class="th-sm">Qty Sold ({{session['delta_range']}} Days)</th>
                     <th class="th-sm">Inventory Days</th>
 
 
@@ -103,7 +102,7 @@
                 </tr>
             </thead>
             <tbody >
-              {% for item in results['inventory_results_dict'].values() %}
+              {% for item in session['inventory_results_dict'].values() %}
                 <tr>
                     <td>{{item['SKU']}}
                     <br><img width="100px" src="{{item['img']}}"</td>
