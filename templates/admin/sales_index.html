@@ -34,6 +34,36 @@
 <canvas id='line_chart_sales_qty'></canvas>
 
 </div>
+<div class="row">
+  <table id="sales-by-sku" class="table table-striped table-bordered table-sm">
+    <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
+
+    <thead>
+        <tr>
+            <th class="th-sm">Sku</th>
+            <th class="th-sm">Name</th>
+            <th class="th-sm">QTY Sold</th>
+            <th class="th-sm">Sales</th>
+            <th class="th-sm">Burn Rate</th>
+
+        </tr>
+    </thead>
+    <tbody >
+      {% for item in session['sku_sales_dict'].values() %}
+        <tr>
+            <td>{{item['sku']}}
+            <br><img width="100px" src="{{item['img']}}"</td>
+            <td width="50%"><a href="../product/{{item['sku']}}">{{item['name']}}</a></td>
+            <td width="10%">{{ "{:,.0f}".format(item['qty']) }}</td>
+            <td width="5%">$ {{ "{:,.2f}".format(item['sales']) }} </td>
+            <td width="10%">{{ "{:,.1f}".format(item['burn']) }}</td>
+
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+  </div>
+
 {% endblock body %}
 {% block tail %}
 
@@ -115,9 +145,52 @@
       var SalesQtyChart = new Chart(saleschartelement,sales_qty_chart)
 
     </script>
+    <script>
+      $(document).ready(function () {
+        $('#sales-by-sku').DataTable({
+         "paging": true, // false to disable pagination (or any other option)
+         "order":[[4, "desc"]],
+         'iDisplayLength' : 100,
+         "language":{
+           "search":"",
+           "searchPlaceholder":"Search. . ."
+          }
+          });
+      $('.dataTables_length').addClass('bs-select');
+    });
+    </script>
 
-    {{ parts.piechart(dict=session['store_sales_dict'], element='marketplace') }}
-    {{ parts.piechart(dict=session['category_sales_dict'], element='categories') }}
-
+    <script>
+    function downloadCSV(csv, filename) {
+        var csvFile;
+        var downloadLink;
+        // CSV file
+        csvFile = new Blob([csv], {type: "text/csv"});
+        // Download link
+        downloadLink = document.createElement("a");
+        // File name
+        downloadLink.download = filename;
+        // Create a link to the file
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        // Hide download link
+        downloadLink.style.display = "none";
+        // Add the link to DOM
+        document.body.appendChild(downloadLink);
+        // Click download link
+        downloadLink.click();
+    }
+          function exportTableToCSV(filename) {
+              var csv = [];
+              var rows = document.querySelectorAll("table tr");
+              for (var i = 0; i < rows.length; i++) {
+                  var row = [], cols = rows[i].querySelectorAll("td, th");
+                  for (var j = 0; j < cols.length; j++)
+                      row.push('"'+cols[j].innerText+'"');
+                  csv.push(row.join(","));
+              }
+              // Download CSV file
+              downloadCSV(csv.join("\n"), filename);
+          }
+    </script>
 
 {% endblock tail %}

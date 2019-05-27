@@ -159,7 +159,7 @@ class StockBoy() :
             self.ProductDictBuilder()
             self.SSInventoryBuilder()
 
-            flash('Stockboy init dicts built')
+            #flash('Stockboy init dicts built')
             session['init_timeout'] = now
 
     #############################
@@ -172,12 +172,12 @@ class StockBoy() :
         if sku :
             sku = sku.strip()
 
-
         if sku in alias_dict:
             sku = alias_dict[sku]
 
         if not sku :
-            sku = 'sb-'+str(random.randint(123456,234567))
+            pass
+            #sku = 'sb-'+str(random.randint(123456,234567))
 
         return sku
 
@@ -311,14 +311,16 @@ class StockBoy() :
         if 'target_sku' in self.results.keys() :
             target_sku = self.results['target_sku']
             ## Don't cache individual items
-            session['orders_cached'] = False
+            session['orders_cache'] = False
             session['orders_timeout'] = now - timedelta(days=100)
+
         else :
             target_sku = 'All'
 
 
         if session.get('orders_cache') :
-            flash('Reports Cached')
+            #flash('Reports Cached')
+
             return
 
 
@@ -567,6 +569,7 @@ class StockBoy() :
             total_shipping += shipping_amt
 
             #### STORE / MARKETPLACE CHANNEL SALES ####
+            ### Can add day dict nested for each marketplace
             if store_id in store_sales_dict :
                 store_sales_dict[store_id]['sales']+= calculated_total
                 store_sales_dict[store_id]['qty']+= order_qty
