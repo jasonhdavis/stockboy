@@ -132,11 +132,13 @@ def AddressEndingStrip (address) :
 class StockBoy() :
 
     def __init__(self):
-        email = current_user.email #'
+        email = current_user.email #'#'lazyluckyfree@gmail.com'#
         self.results= {}
         ### Development Email Address
         #email = 'lazyluckyfree@gmail.com'
         session['email']=email
+
+
 
         #session['cached'] = True
         #flash('Stockboy Initiated')
@@ -1505,8 +1507,12 @@ class InventoryView(BaseView):
         top_bar['total_skus'] = total_skus
 
         total_qty = session['top_bar']['total_qty']
-        total_days = total_inventory/(total_qty/session['delta_range'])
 
+        if total_qty == 0:
+            total_days = total_inventory/(total_qty/session['delta_range'])
+        else :
+            total_days = 0
+            flash('No inventory uploaded')
         top_bar['total_days'] = total_days
         session['top_bar'] = top_bar
         session['inventory_results_dict'] = inventory_results_dict
@@ -1772,7 +1778,13 @@ class FBAView(BaseView):
             }
 
         session['fba_inventory_results_dict'] = fba_inventory_results_dict
-        session['top_bar']['fba_avg_days'] = (float(session['fba_dict']['meta']['total_stock']) / float(total_qty))*default_range
+
+        if total_qty > 0:
+            session['top_bar']['fba_avg_days'] = (float(session['fba_dict']['meta']['total_stock']) / float(total_qty))*default_range
+
+        else :
+            session['top_bar']['fba_avg_days'] = 0
+
         return self.render('admin/fba_index.html')
 
 class CustomerView(BaseView) :
