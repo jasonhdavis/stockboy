@@ -40,7 +40,7 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{session['fba_dict']['meta']['stock_value']}}</h3>
+              <h3>${{ "{:,.2f}".format(session['fba_dict']['meta']['stock_value']) }}</h3>
 
               <p>Inventory Value</p>
           </div>

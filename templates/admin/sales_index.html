@@ -7,7 +7,9 @@
 <section class="content-header">
     <h1>Sales</h1>
   <ol class="breadcrumb">
-      <li class="active"><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+      <li><a href="../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+      <li class="active"><a href="#"><i class="fa fa-area-chart"></i>Sales</a></li>
+
   </ol>
   {% include 'admin/daterange.html' %}
 </section>
@@ -44,7 +46,7 @@
             <th class="th-sm">Name</th>
             <th class="th-sm">QTY Sold</th>
             <th class="th-sm">Sales</th>
-            <th class="th-sm">Burn Rate</th>
+            <th class="th-sm">Daily Burn Rate</th>
 
         </tr>
     </thead>
@@ -192,5 +194,6 @@
               downloadCSV(csv.join("\n"), filename);
           }
     </script>
+
 
 {% endblock tail %}
