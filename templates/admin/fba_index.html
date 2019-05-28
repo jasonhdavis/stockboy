@@ -26,7 +26,7 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{session['top_bar']['fba_total_qty']}}</h3>
+                  <h3>{{session['fba_dict']['meta']['total_stock']}}</h3>
                   <p>Total Inventory</p>
               </div>
               <div class="icon">
@@ -40,7 +40,7 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>$0</h3>
+              <h3>${{session['fba_dict']['meta']['stock_value']}}</h3>
 
               <p>Inventory Value</p>
           </div>
@@ -55,7 +55,7 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{session['top_bar']['fba_skus']}}</h3>
+              <h3>{{session['fba_dict']['meta']['sku_count']}}</h3>
 
               <p>SKUs</p>
           </div>
@@ -70,9 +70,9 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>Fast</h3>
+              <h3>{{ "{:,.1f}".format(session['top_bar']['fba_avg_days']) }}</h3>
 
-              <p>Sell Through</p>
+              <p>Days</p>
           </div>
           <div class="icon">
               <i class="ion ion-bonfire"></i>

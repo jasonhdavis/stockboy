@@ -51,11 +51,11 @@
     <tbody >
       {% for item in session['sku_sales_dict'].values() %}
         <tr>
-            <td>{{item['sku']}}
+            <td width="10%">{{item['sku']}}
             <br><img width="100px" src="{{item['img']}}"</td>
-            <td width="50%"><a href="../product/{{item['sku']}}">{{item['name']}}</a></td>
+            <td width="40%"><a href="../product/{{item['sku']}}">{{item['name']}}</a></td>
             <td width="10%">{{ "{:,.0f}".format(item['qty']) }}</td>
-            <td width="5%">$ {{ "{:,.2f}".format(item['sales']) }} </td>
+            <td width="10%">$ {{ "{:,.2f}".format(item['sales']) }} </td>
             <td width="10%">{{ "{:,.1f}".format(item['burn']) }}</td>
 
         </tr>
@@ -96,7 +96,7 @@
           {% for year in session['by_day_dict'].values() %}
           {% for month in year.values() %}
           {% for day in month.values() %}
-            {{ day['sales'] }},
+            {{day['sales'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}

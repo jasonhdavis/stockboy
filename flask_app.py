@@ -142,7 +142,7 @@ class StockBoy() :
         #flash('Stockboy Initiated')
 
         if session.get('init_timeout') :
-            if now - session['init_timeout'] < timedelta(hours=1):
+            if now - session['init_timeout'] < timedelta(hours=0):
                 cached = True
                 #flash('Init cached')
             else :
@@ -154,10 +154,10 @@ class StockBoy() :
             self.AliasDictBuilder()
             self.StoreDictBuilder()
             self.ShipperDictBuilder()
+            self.SSInventoryBuilder()
             self.FBADictBuilder()
             self.StoreDictBuilder()
             self.ProductDictBuilder()
-            self.SSInventoryBuilder()
 
             #flash('Stockboy init dicts built')
             session['init_timeout'] = now
@@ -356,7 +356,7 @@ class StockBoy() :
         total_discounts = 0
         total_shipping = 0
         total_inventory = session['inventory_dict']['meta']['total_stock'] + session['fba_dict']['meta']['total_stock']
-        total_value = 0
+        total_stock_value = session['inventory_dict']['meta']['stock_value'] + session['fba_dict']['meta']['stock_value']
         ### Supporting Variables
         #alias_dict
         ##product_dict
@@ -648,7 +648,8 @@ class StockBoy() :
             'discounts': total_discounts,
             'shipping': total_shipping,
             'gross_sales': total_sales+total_shipping,
-            'total_inventory': total_inventory
+            'total_inventory': total_inventory,
+            'total_stock_value': total_stock_value
             }
 
     def OrderedTogether(self, sku):
@@ -819,6 +820,7 @@ class StockBoy() :
         cursor = mongo.db.mws.find({'Owner':session['email']})
         sku_count = 0
         total_stock = 0
+        stock_value = 0
         fba_dict = {}
         for item in cursor :
             asin = item['ASIN']
@@ -833,6 +835,10 @@ class StockBoy() :
 
                 sku_count += 1
                 total_stock += int(item['InStockSupplyQuantity'])
+
+                if sku in session['inventory_dict'] :
+                    if 'SB Cost' in session['inventory_dict'][sku]:
+                        stock_value += int(item['InStockSupplyQuantity']) * session['inventory_dict'][sku]['SB Cost']
                 #fba_dict[asin]['afn-fulfillable-quantity'] = 0
                 #fba_dict[asin]['afn-warehouse-quantity'] = 0
                 #fba_dict[asin]['afn-total-quantity'] = 0
@@ -847,7 +853,8 @@ class StockBoy() :
 
         fba_dict['meta'] = {
         'sku_count':sku_count,
-        'total_stock':total_stock
+        'total_stock':total_stock,
+        'stock_value': stock_value
         }
 
         session['address_list'] = address_list
@@ -1697,7 +1704,8 @@ class FBAView(BaseView):
         fba_inventory_results_dict = {}
         total_qty = 0
         total_cost = 0
-        fba_skus = len(fba_dict)
+        days_list = []
+        #fba_skus = len(fba_dict)
 
 
         for item in fba_dict :
@@ -1764,9 +1772,7 @@ class FBAView(BaseView):
             }
 
         session['fba_inventory_results_dict'] = fba_inventory_results_dict
-        session['top_bar']['fba_skus'] = fba_skus
-        session['top_bar']['fba_total_qty'] = total_qty
-
+        session['top_bar']['fba_avg_days'] = (float(session['fba_dict']['meta']['total_stock']) / float(total_qty))*default_range
         return self.render('admin/fba_index.html')
 
 class CustomerView(BaseView) :
