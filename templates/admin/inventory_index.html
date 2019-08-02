@@ -110,6 +110,7 @@
                     <td width="10%">{{"{:,.0f}".format(item['stock'])}}</td>
                     <td width="5%">$
                       <form id="{{item['SKU']}}">
+                        {{ item['cost'] }}
                         {{costform.cost(size=5, value="{:,.2f}".format(item['cost']))}}
                         {{costform.sku(value=item['SKU'])}}
                         {{ costform.hidden_tag() }}

@@ -30,8 +30,9 @@ from flask_bootstrap import Bootstrap
 from flask_datepicker import datepicker
 from flask_admin.contrib.pymongo import ModelView
 from flask_wtf import Form, FlaskForm
-from wtforms import StringField, PasswordField, TextField, SubmitField, validators, HiddenField, FloatField, DecimalField
+from wtforms import StringField, PasswordField, TextField, SubmitField, validators, HiddenField, FloatField, DecimalField, IntegerField, TextAreaField
 from flask_wtf.file import FileField, FileRequired
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import CombinedMultiDict
 from flask_pymongo import PyMongo
@@ -54,6 +55,7 @@ app = Flask(__name__)
 app.config.from_pyfile('config.py')
 sess = Session()
 sess.init_app(app)
+csrf = CSRFProtect(app)
 
 Bootstrap(app)
 datepicker(app)
@@ -138,19 +140,10 @@ class StockBoy() :
         #email = 'lazyluckyfree@gmail.com'
         session['email']=email
 
-
-
         #session['cached'] = True
         #flash('Stockboy Initiated')
 
-        if session.get('init_timeout') :
-            if now - session['init_timeout'] < timedelta(hours=0):
-                cached = True
-                #flash('Init cached')
-            else :
-                cached = False
-        else :
-            cached = False
+        cached = self.IsExpired('init_timeout')
 
         if not cached :
             self.AliasDictBuilder()
@@ -255,6 +248,25 @@ class StockBoy() :
 
             session['orders_timeout'] = now
 
+    def ExpireCache(self, timer):
+        ## Simple helper to set the timeout
+        session[timer] = now - timedelta(days=100)
+
+    def IsExpired(self, timer) :
+        ## If you wanted to adjust cache duration,
+        ## you would do it here
+        if session.get(timer) :
+            if now - session['init_timeout'] < timedelta(hours=1):
+                cached = True
+                #flash('Init cached')
+            else :
+                cached = False
+        else :
+            cached = False
+
+        return cached
+
+
     ##############################
     ###### INIT BUILDERS #########
     #############################
@@ -314,16 +326,11 @@ class StockBoy() :
             target_sku = self.results['target_sku']
             ## Don't cache individual items
             session['orders_cache'] = False
-            session['orders_timeout'] = now - timedelta(days=100)
+
+            self.ExpireCache('orders_timeout')
 
         else :
             target_sku = 'All'
-
-
-        if session.get('orders_cache') :
-            #flash('Reports Cached')
-
-            return
 
 
         #### OUTPUT ########
@@ -465,6 +472,18 @@ class StockBoy() :
                 order_qty += qty
                 ## Here's where we should look into issues topline total
                 calculated_total += qty*price
+
+
+                ### Items not transfered to Amazon get added to By Day Dict
+                if item_sku in bdd_thisday :
+                    bdd_thisday[item_sku]['sales']+= price*qty
+                    bdd_thisday[item_sku]['qty']+= qty
+                    ## Historic Stock Value Goes here
+                else :
+                    bdd_thisday[item_sku] = {
+                        'sales': price*qty,
+                        'qty': qty
+                    }
 
                 ### Items not transfered to Amazon get counted in existing record
                 if item_sku in sku_sales_dict :
@@ -838,9 +857,17 @@ class StockBoy() :
                 sku_count += 1
                 total_stock += int(item['InStockSupplyQuantity'])
 
+                if 'Title' in item :
+                    fba_dict[sku]['Title'] = item['Title']
+                    fba_dict[sku]['ProductGroup'] = item['ProductGroup']
+                    fba_dict[sku]['img'] = item['img']
+                    fba_dict[sku]['Brand'] = item['Brand']
+                    fba_dict[sku]['Rank'] = item['Rank']
+
                 if sku in session['inventory_dict'] :
                     if 'SB Cost' in session['inventory_dict'][sku]:
                         stock_value += int(item['InStockSupplyQuantity']) * session['inventory_dict'][sku]['SB Cost']
+
                 #fba_dict[asin]['afn-fulfillable-quantity'] = 0
                 #fba_dict[asin]['afn-warehouse-quantity'] = 0
                 #fba_dict[asin]['afn-total-quantity'] = 0
@@ -868,6 +895,7 @@ class StockBoy() :
         pass
 
     def ShipmentDictBuilder(start, end) :
+
         cursor = mongo.db.shipments.find({'$and':[
         {'createDate':{'$lte': end, '$gte':start}},
         {'owner':current_user.email}]})
@@ -888,8 +916,10 @@ class StockBoy() :
             sd['userId'] = item['userId']
 
 
+        session['shippment_timeout'] = now
 
         return ship_dict
+
 
 ##Depreciated with strip microseconds
 
@@ -1066,7 +1096,8 @@ def ShipmentDictBuilder(start, end) :
 def ShipperDictBuilder() :
     shipper_dict = {}
 
-    cursor = mongo.db.users.find()
+    cursor = mongo.db.users.find() #This is a very troublesome collection namespace
+    ## This should be update to ss_users
 
     for shipper in cursor :
         shipper_dict[shipper['userId']] = {}
@@ -1143,6 +1174,12 @@ class InventoryCostForm(FlaskForm):
     cost = DecimalField(places=2)
     sku = HiddenField()
 
+class SupplierForm(FlaskForm):
+    name = TextField(validators.DataRequired())
+    email = TextField()
+    lead_time = IntegerField()
+    notes = TextAreaField()
+
 
 
 ###############
@@ -1160,24 +1197,20 @@ class DashboardView(AdminIndexView):
         sb = StockBoy()
         sb.DateFormController(formvalue)
 
-        if session.get('orders_cache') == False :
+        #if sb.IsExpired('orders_timeout'):
             #flash('Session cached')
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
+        cursor = mongo.db.orders.find(
+        {'$and':[
+            {'orderDate':
+                {'$lte': session['end'],
+                '$gte':session['start']}
+            },
+            {'owner':session['email']}
+        ]}
+        )
 
-            sb.ReportDictBuilder(cursor)
-            #flash('Orders Built')
-
-        else:
-            pass
-            #flash ('Orders Cached')
+        sb.ReportDictBuilder(cursor)
+        #flash('Orders Built')
 
         sku_sales_sort = []
         for item in session['sku_sales_dict'].values() :
@@ -1197,6 +1230,7 @@ class ProfileView(BaseView):
     @expose('/', methods=('GET','POST'))
     @login_required
     def UserProfile(self):
+        sb = StockBoy()
         apiform = SSAPI(prefix='apiform')
         fbaform = MWSAPI(prefix='fbaform')
         inventoryform = FileUploadForm(prefix='inventoryform')
@@ -1280,6 +1314,9 @@ class ProfileView(BaseView):
                     mongo.db.alias.update({'Alias':str(ws.cell_value(r,1))},row,upsert=True)
                     r+=1
                 flash('Imported ' + str(col_len-2) + ' Alias Records')
+
+                sb.ExpireCache('init_timeout')
+
                 mongo.db.mongo_user.update({'email':current_user.email},{'$set':{'alias_updated':now}})
             return redirect(url_for('import.UserProfile'))
 
@@ -1419,7 +1456,7 @@ class InventoryView(BaseView):
 
         sb.DateFormController(formvalue)
 
-        if session.get('orders_cache') == False :
+        if not sb.IsExpired('orders_cache'):
 
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -1433,12 +1470,8 @@ class InventoryView(BaseView):
 
             ## Pull resources - 1 for loop each - look into session storage
             sb.ReportDictBuilder(cursor)
-
+            session['orders_timeout'] = now
             #flash('Orders Built')
-        else:
-
-            pass
-            #flash('Orders cached')
 
         ssd = session['sku_sales_dict']
         fbad = session['fba_dict']
@@ -1494,27 +1527,34 @@ class InventoryView(BaseView):
                 days = 9999
             row['days'] = days
 
+
             total_inventory += stock+fba
             total_sold += sold
             total_value += row['cost']*(stock+fba)
             total_skus += 1
 
-        top_bar = session['top_bar']
 
-        top_bar['total_inventory'] = total_inventory
-        top_bar['total_sold'] = total_sold
-        top_bar['total_value'] = total_value
-        top_bar['total_skus'] = total_skus
+        #### THIS NEEDS TO BE PAGE SPECIFIC
+        #afd
+        #top_bar = session['top_bar']
+
+        ## Run some tests here to see if you get the same values
+
+        session['top_bar']['page_total_inventory'] = total_inventory
+        session['top_bar']['page_total_sold'] = total_sold
+        session['top_bar']['page_total_value'] = total_value
+        session['top_bar']['page_total_skus'] = total_skus
 
         total_qty = session['top_bar']['total_qty']
 
-        if total_qty == 0:
+        if total_qty > 0:
             total_days = total_inventory/(total_qty/session['delta_range'])
         else :
             total_days = 0
-            flash('No inventory uploaded')
-        top_bar['total_days'] = total_days
-        session['top_bar'] = top_bar
+            #flash('No inventory uploaded')
+
+        session['top_bar']['total_days'] = total_days
+        #session['top_bar'] = top_bar
         session['inventory_results_dict'] = inventory_results_dict
 
 
@@ -1524,6 +1564,37 @@ class InventoryView(BaseView):
     def FBAInventory(self):
 
         return self.render('admin/inventory_index.html', items_chart=items_chart, top=top_bar)
+
+    @expose('/barcodes', methods=('GET','POST'))
+    def BarcodeIndex(self):
+        formvalue = default_range
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+
+        sb = StockBoy()
+        sb.DateFormController(formvalue)
+
+        if session.get('orders_cache') == False :
+            #flash('Session cached')
+            cursor = mongo.db.orders.find(
+            {'$and':[
+                {'orderDate':
+                    {'$lte': session['end'],
+                    '$gte':session['start']}
+                },
+                {'owner':session['email']}
+            ]}
+            )
+
+            sb.ReportDictBuilder(cursor)
+            #flash('Orders Built')
+
+        else:
+            pass
+            #flash ('Orders Cached')
+
+        return self.render('admin/barcode_index.html')
+
 
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
@@ -1658,6 +1729,10 @@ class ProductView(BaseView):
 
         return self.render('admin/product_sku.html', sku=target_sku)
 
+    @expose('/barcode/<string:target_sku>', methods=('GET','POST'))
+    def BarcodePrint(self, target_sku):
+        return self.render('admin/barcode_popup.html', sku=target_sku)
+
 class FBAView(BaseView):
     @expose('/',methods=(['GET']))
     @login_required
@@ -1755,8 +1830,6 @@ class FBAView(BaseView):
 
 
             else :
-                if not name :
-                    name = 'Unable to determine product name'
                 amz_qty = 0
                 supply = int(fba_dict[item]['InStockSupplyQty'])
                 days = 9999
@@ -1764,18 +1837,28 @@ class FBAView(BaseView):
                 img = '\#'
                 recommended = 0
 
+                if not name :
+                    #name = 'Unable to determine product name'
+                    name = 'Unable to determine product name'
+                    if 'Title' in fba_dict[item]:
+                        name = fba_dict[item]['Title']
+                        img = fba_dict[item]['img']
 
-            fba_inventory_results_dict[sku] = {
-                'sku' : sku,
-                'asin' : item,
-                'name' : name,
-                'img' : img,
-                'amz-sales' : amz_sales,
-                'amz-qty': amz_qty,
-                'supply' : supply,
-                'days': days,
-                'recommended': recommended
-            }
+
+            if supply == 0 and name == 'Unable to determine product name':
+                continue
+            else:
+                fba_inventory_results_dict[sku] = {
+                    'sku' : sku,
+                    'asin' : item,
+                    'name' : name,
+                    'img' : img,
+                    'amz-sales' : amz_sales,
+                    'amz-qty': amz_qty,
+                    'supply' : supply,
+                    'days': days,
+                    'recommended': recommended
+                }
 
         session['fba_inventory_results_dict'] = fba_inventory_results_dict
 
@@ -2055,10 +2138,11 @@ class ShipmentView(BaseView):
 
         return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
+
+
 #class AJAXHandler():
 #    @expose('/',methods=('POST'))
 #    @login_required
-
 
 ######################################
 ######## HOMEPAGE TO STATIC SITE ####
@@ -2071,6 +2155,9 @@ assets_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'hom
 def homepage():
     return send_from_directory(index_file_dir, 'index.html')
 
+@app.route('/scan-and-label.html', methods=['GET'])
+def scan():
+    return send_from_directory(index_file_dir, 'scan-and-label.html')
 
 @app.route('/assets/<path:path>', methods=['GET'])
 def serve_file_in_dir(path):

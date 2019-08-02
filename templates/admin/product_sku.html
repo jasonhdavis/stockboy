@@ -1,4 +1,7 @@
+<script src="https://cdn.jsdelivr.net/jsbarcode/3.6.0/JsBarcode.all.min.js"></script>
+
 {% extends 'admin/master.html' %}
+
 {% block body %}
 {{ super() }}
 
@@ -23,6 +26,7 @@
       {% if sku in ssd %}<img class="product-image float-left" width="150px" src="{{ssd[sku]['img']}}">{% endif %}
       {{product_dict[sku]['name']}}
     </h1>
+    <a class='fa fa-barcode' onclick="window.open('./barcode/{{sku}}', '_blank', 'location=yes,height=570,width=520,scrollbars=yes,status=yes');"> Print Barcode</a>
     <h4>Inventory Days: {{"{:,.1f}".format(top_bar['days']) }}</h4>
     <h4>Lifetime Sales: </h4>
     <h4>Lifetime Qty: </h4>
@@ -257,5 +261,7 @@
 
 
     </script>
-
+<script>
+  JsBarcode(".barcode").init();
+</script>
   {% endblock tail %}

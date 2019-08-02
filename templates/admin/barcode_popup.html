@@ -1,0 +1,40 @@
+<script src="https://cdn.jsdelivr.net/jsbarcode/3.6.0/JsBarcode.all.min.js"></script>
+<style type="text/css">
+  #menu {
+	display: none;
+}
+
+#wrapper,
+#content {
+	width: auto;
+	border: 0;
+	margin: 0 5%;
+	padding: 0;
+	float: none !important;
+}
+
+h6 {
+  margin:5px;
+  padding: 0px;
+  line-height:1em;
+
+}
+</style>
+
+
+<center>
+<svg id="barcode" jsbarcode-format="upc" jsbarcode-value="{{sku}}" jsbarcode-textmargin="0" jsbarcode-fontoptions="bold" jsbarcode-height="100" jsbarcode-width="3" jsbarcode-margin="0"></svg>
+<h6>Real Sic - {{session['product_dict'][sku]['name'][:54]}}</h6>
+</center>
+<script>
+
+  JsBarcode("#barcode").init();
+
+
+  //window.print();
+
+  //window.open('', '_parent', '');
+
+  //window.close();
+
+</script>

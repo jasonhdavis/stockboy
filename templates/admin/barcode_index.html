@@ -1,5 +1,6 @@
-{% extends 'admin/master.html' %}
+<script src="https://cdn.jsdelivr.net/jsbarcode/3.6.0/JsBarcode.all.min.js"></script>
 
+{% extends 'admin/master.html' %}
 {% block body %}
 {{ super() }}
 
@@ -58,7 +59,11 @@
             <br><img width="100px" src="{{item['img']}}"</td>
             <td width="40%"><a href="../product/{{item['sku']}}">{{item['name']}}</a></td>
             <td width="10%">{{ "{:,.0f}".format(item['qty']) }}</td>
-            <td width="10%">$ {{ "{:,.2f}".format(item['sales']) }} </td>
+            <td width="10%"><svg class="barcode" jsbarcode-format="upc" jsbarcode-value="{{item['sku']}}" jsbarcode-textmargin="0" jsbarcode-fontoptions="bold"></svg>
+              <a class="print">Print</a> |
+              <a href="#" class="generate">Generate</a>
+
+</td>
             <td width="10%">{{ "{:,.1f}".format(item['burn']) }}</td>
 
         </tr>
@@ -151,8 +156,8 @@
     <script>
       $(document).ready(function () {
         $('#sales-by-sku').DataTable({
-         "paging": true, // false to disable pagination (or any other option)
-         "order":[[4, "desc"]],
+         "paging": false, // false to disable pagination (or any other option)
+         "order":[[2, "desc"]],
          'iDisplayLength' : 100,
          "language":{
            "search":"",
@@ -161,6 +166,7 @@
           });
       $('.dataTables_length').addClass('bs-select');
     });
+
     </script>
 
     <script>
@@ -195,7 +201,8 @@
               downloadCSV(csv.join("\n"), filename);
           }
 
-          JsBarcode(".barcode").init();
+    JsBarcode(".barcode").init();
+
 
     </script>
 
