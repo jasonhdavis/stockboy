@@ -109,7 +109,7 @@
           {% for year in session['by_day_dict'].values() %}
           {% for month in year.values() %}
           {% for day in month.values() %}
-            {{ day['sales'] }},
+            {{ day['meta']['sales'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}
@@ -124,7 +124,7 @@
             {% for year in session['by_day_dict'].values() %}
             {% for month in year.values() %}
             {% for day in month.values() %}
-              {{ day['qty'] }},
+              {{ day['meta']['qty'] }},
             {% endfor %}
             {% endfor %}
             {% endfor %}
@@ -139,7 +139,7 @@
           {% for year in session['by_day_dict'].values() %}
           {% for month in year.values() %}
           {% for day in month.values() %}
-            {{ day['fba'] }},
+            {{ day['meta']['fba'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}

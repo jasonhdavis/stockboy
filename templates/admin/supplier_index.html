@@ -12,10 +12,11 @@
     <!-- Left col -->
     <section class="container">
         <section class="content-header">
-                <h1>Inventory</h1>
+                <h1>Suppliers</h1>
           <ol class="breadcrumb">
               <li><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
-              <li class="active">Inventory</li>
+              <li><a href="#"><i class="fa fa-dashboard"></i>Inventory</a></li>
+              <li class="active">Suppliers</li>
           </ol>
         </section>
         <section class="content">
@@ -25,8 +26,8 @@
               <!-- small box -->
               <div class="small-box bg-success">
                 <div class="inner">
-                  <h3>{{ "{:,.0f}".format(session['top_bar']['total_inventory']) }}</h3>
-                  <p>Total Inventory</p>
+                  <h3>{{session['top_bar']['supplier_count']}}</h3>
+                  <p>Suppliers</p>
               </div>
               <div class="icon">
                   <i class="ion ion-pricetag"></i>
@@ -39,9 +40,9 @@
           <!-- small box -->
           <div class="small-box bg-info">
             <div class="inner">
-              <h3>${{ "{:,.2f}".format(session['top_bar']['total_stock_value']) }}</h3>
+              <h3>${{ "{:,.2f}".format(session['top_bar']['supplier_average_cost']) }}</h3>
 
-              <p>Inventory Value</p>
+              <p>Average Cost</p>
           </div>
           <div class="icon">
               <i class="ion ion-stats-bars"></i>
@@ -54,9 +55,9 @@
           <!-- small box -->
           <div class="small-box bg-warning">
             <div class="inner">
-              <h3>{{session['inventory_dict']['meta']['sku_count']}}</h3>
+              <h3>${{ "{:,.2f}".format(session['top_bar']['supplier_average_first_cost'])}}</h3>
 
-              <p>SKUs</p>
+              <p>Average First Cost</p>
           </div>
           <div class="icon">
               <i class="ion ion-filing"></i>
@@ -69,8 +70,8 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{"{:,.1f}".format(session['top_bar']['total_days'])}}</h3>
-              <p>Avg. Days</p>
+              <h3>{{session['top_bar']['supplier_average_lead_time']}} Days</h3>
+              <p>Avg. Lead Time</p>
           </div>
           <div class="icon">
               <i class="ion ion-bonfire"></i>
@@ -81,46 +82,81 @@
         <!-- ./col -->
         </div>
         <!-- /.row -->
+        <div class="row col-lg-6">
+          <h2>Add New Supplier</h2>
+          <form method="POST" id="add-supplier">
+            <div class="from-group">
+              <div class="form-row">
+              <label for="name">Name</label>
+                {{supplierform.name(size=55,class="form-control")}}<br>
+              <label for="email" >Email</label>
+                {{supplierform.email(size=55, class="form-control")}}<br>
+                </div>
+                <div class="form-row">
+                  <div class="col-md-4">
+                <label  for="lead_time">Lead Time (Days)</label>
+                  {{supplierform.lead_time(size=4, class="form-control")}}
+                  </div>
+                  <div class="col-md-4">
+                <label  for="lead_time">Default Unit Cost</label>
+                  {{supplierform.default_cost(size=4, class="form-control")}}
+                </div>
+                <div class="col-md-4">
+                <label  for="lead_time">Default First Cost</label>
+                  {{supplierform.default_first_cost(size=4, class="form-control")}}
+                </div>
+                </div>
+
+              <label for="notes">Notes</label>
+                {{supplierform.notes(class="form-control")}}
+
+              {{ supplierform.hidden_tag() }}
+              {{supplierform.CSRF}}
+              <div class="float-right">
+                {{supplierform.submit(class="btn btn-primary")}}
+              </div>
+              </div>
+          </form>
+
+        </div>
         <!-- Main row -->
-        <div class="row">
+        <div class="row col-lg-12 clearfix">
           <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
-            <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
+            <button class="float-left" onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
 
             <thead>
                 <tr>
-                    <th class="th-sm">Sku</th>
+                    <th class="th-sm">ID</th>
                     <th class="th-sm">Name</th>
-                    <th class="th-sm">Local Stock</th>
-                    <th class="th-sm">Avg Cost</th>
-                    <th class="th-sm">Amz Warehouse</th>
-                    <th class="th-sm">Qty Sold ({{session['delta_range']}} Days)</th>
-                    <th class="th-sm">Inventory Days</th>
-
-
-
+                    <th class="th-sm">Email</th>
+                    <th class="th-sm">Lead Time</th>
+                    <th class="th-sm">Default Unit Cost</th>
+                    <th class="th-sm">Default First Cost</th>
+                    <th class="th-sm">Notes</th>
+                    <th class="th-sm">Edit</th>
+                    <th class="th-sm">Delete</th>
 
                 </tr>
             </thead>
             <tbody >
-              {% for item in session['inventory_results_dict'].values() %}
+              {% for item in session['supplier_dict'].values() %}
                 <tr>
-                    <td>{{item['SKU']}}
-                    <br><img width="100px" src="{{item['img']}}"</td>
-                    <td width="50%"><a href="../product/{{item['SKU']}}">{{item['name']}}</a></td>
-                    <td width="10%">{{"{:,.0f}".format(item['stock'])}}</td>
-                    <td width="5%">$<span style="color:#fff">{{ item['cost'] }}</span>
-                      <form id="{{item['SKU']}}">
-                        {{costform.cost(size=5, value="{:,.2f}".format(item['cost']))}}
-                        {{costform.sku(value=item['SKU'])}}
-                        {{ costform.hidden_tag() }}
-                        <span class="saved-text" style="display:none;">Saved!</span>
-                      </form>
+                  <form id="{{ item['_id'] }}">
+                    <td width="5%">{{ item['_id']|string|truncate(8, True)}}  </td>
+                    <td width="50%">{{item['name']}}</td>
+                    <td width="10%">{{item['email']}}</td>
+                    <td width="5%">{{item['lead_time']}}</td>
+                    <td width="5%">{{item['default_cost']}} </td>
+                    <td width="5%">{{item['default_first_cost']}} </td>
+                    <td width="25%">{{item['notes']|urlize}}</td>
+                    <td width="10%">Edit
+                      <span class="saved-text" style="display:none;">Saved!</span>
+                    </td>
+                    <td width="10%"><a class='delete' href='./delete/{{item["_id"] }}'>Delete</a>
+                      <span class="deleted-text" style="display:none;">Deleted!</span>
 
-                      </td>
-                    <td width="10%">{{item['fba']}}</td>
-                    <td width="20%">{{item['sold']}}</td>
-                    <td width="20%">{{"{:,.1f}".format(item['days'])}}</td>
-
+                    </td>
+                  </form>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -189,15 +225,15 @@
   </script>
   <script>
     $(document).ready(function() {
-        $('form').focusout(function (e) {
-            var url = "#"; // send the form data here.
+        $('.delete').click(function (e) {
             var form_id = $(this).attr('id');
+            var url = "delete/"+form_id; // send the form data here.
             $.ajax({
                 type: "POST",
                 url: url,
-                data: $('#'+form_id).serialize(), // serializes the form's elements.
+                data: $('form#'+form_id).serialize(), // serializes the form's elements.
                 success: function (data) {
-                    $('#'+form_id + ' span.saved-text').fadeIn(400).fadeOut(400)
+                    $('#'+form_id + ' span.deleted-text').fadeIn(400).fadeOut(400)
                     console.log(data)  // display the returned data in the console.
                 }
             });
@@ -207,7 +243,7 @@
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
                 if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
-                    xhr.setRequestHeader("X-CSRFToken", "{{ costform.csrf_token._value() }}")
+                    xhr.setRequestHeader("X-CSRFToken", "{{ supplierform.csrf_token._value() }}")
                 }
             }
         })
@@ -246,4 +282,17 @@
             downloadCSV(csv.join("\n"), filename);
         }
   </script>
+
+  <script>
+    $(".delete").click(function(){
+    $.ajax({
+      type: 'POST',
+      url: './supplier/delete/'+ $this.href,
+      dataType: "text",
+      success: function(data){
+                 alert("Deleted Supplier ");
+               }
+    });
+});
+</script>
   {% endblock tail %}

@@ -45,9 +45,8 @@
   <div class="col-sm-4 float-left">
   <h4 style="border-bottom:#000 1px solid">Inventory</h4>
   {% if sku in inventory_dict.keys() %}
-  {% if 'SB Cost' in inventory_dict.keys() %}
-  <h5>Cost: ${{inventory_dict[sku]['SB Cost']}}</h5>
-  {% endif %}
+  <h5>Cost: ${{session['inventory_results_dict'][sku]['cost']}}</h5>
+
   <h5>Local Stock: {{"{:,.0f}".format(inventory_dict[sku]['Available'])}}</h5>
   {% endif %}
 
@@ -62,13 +61,39 @@
   </div>
   <div class="col-sm-4 float-left">
     <h4 style="border-bottom:#000 1px solid">Purchasing</h4>
-    <h5>Supplier: </h5>
-    <h5>Model #: </h5>
-    <h5>Lead Time: </h5>
-    <h5>Min Order Qty: </h5>
+    <div id="supplier_details_static">
+      <button id="supplier_edit">Edit</button>
+
+        <h5>Supplier: {{ product_dict[sku]['supplier_name'] }}</h5>
+          <h5>Model #: {{ product_dict[sku]['model_no']}}</h5>
+          <h5>Lead Time (Days): {{product_dict[sku]['lead_time'] }}</h5>
+          <h5>Min Order Qty: {{product_dict[sku]['moq'] }}</h5>
+          <!--<h5>Ignore Restock Alerts:</h5>-->
+          <h5>Notes:{{product_dict[sku]['notes']}}</h5>
+      </div>
+
+      <form id="supplier_details" style="display:none;">
+        <div class="form-group">
+
+
+{{supplierselect.supplier()}}
+
+    {{ supplierselect.product_id(value=product_dict[sku]['_id'], class="form-control") }}
+    <h5>Model #: {{ supplierselect.model_no(value=product_dict[sku]['model_no'], class="form-control") }}</h5>
+    <h5>Lead Time (Days): {{supplierselect.lead_time(value=product_dict[sku]['lead_time'], class="form-control") }}</h5>
+    <h5>Min Order Qty: {{supplierselect.moq(value=product_dict[sku]['moq'], class="form-control") }}</h5>
     <!--<h5>Ignore Restock Alerts:</h5>-->
-    <h5>Notes:</h5>
+    <h5>Notes:{{supplierselect.notes(class="form-control")}}</h5>
+
+    {{ supplierselect.hidden_tag() }}
+    <button id="supplier_edit_close">Close</button>
+
+    <span class="saved-text" style="display:none;">Saved!</span>
+
+    </form>
+
   </div>
+
 </section>
 
 
@@ -261,7 +286,48 @@
 
 
     </script>
-<script>
-  JsBarcode(".barcode").init();
-</script>
+    <script>
+
+      $(document).ready(function() {
+        var supplier_id = "{{ session['product_dict'][sku]['supplier_id'] }}";
+        $('#supplier_details option[value='+supplier_id+']').attr("selected", "selected");
+        $('#supplier_details textarea').append("{{session['product_dict'][sku]['notes']}}")
+          });
+      $(document).ready(function() {
+        $('button#supplier_edit').click(function(){
+          $('form#supplier_details').fadeIn(400);
+          $('#supplier_details_static').fadeOut(100);
+        });
+          });
+      $(document).ready(function() {
+        $('button#supplier_edit_close').click(function(){
+          $('form#supplier_details').fadeOut(100);
+          $('#supplier_details_static').fadeIn(400);
+
+        });
+          });
+      $(document).ready(function() {
+          $('#supplier_details').focusout(function (e) {
+              var url = '../product/supplier-details/edit'; // send the form data here.
+              $.ajax({
+                  type: "POST",
+                  url: url,
+                  data: $('#supplier_details').serialize(), // serializes the form's elements.
+                  success: function (data) {
+                      $('#supplier_details span.saved-text').fadeIn(400).fadeOut(400)
+                      console.log(data)  // display the returned data in the console.
+                  }
+              });
+              e.preventDefault(); // block the traditional submission of the form.
+          });
+          // Inject our CSRF token into our AJAX request.
+          $.ajaxSetup({
+              beforeSend: function(xhr, settings) {
+                  if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                      xhr.setRequestHeader("X-CSRFToken", "{{ supplierselect.csrf_token._value() }}")
+                  }
+              }
+          })
+      });
+  </script>
   {% endblock tail %}

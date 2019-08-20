@@ -20,34 +20,8 @@
               <li><a href="#"><i class="fa fa-dashboard"></i> Dashboard</a></li>
               <li class="active">Products</li>
           </ol>
+          {% include 'admin/daterange.html' %}
 
-          <div class="date-picker col-xs-3">
-            <form id ='daterangeform' action="{{url_for('product.ProductIndex')}}" method="post">
-              <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-                <input autocomplete="off" class="form-control" type="text" name="daterange" >
-                <input type="submit" name="submit" id="date-submit" value="Go">
-            </form>
-            <script>
-            $(function() {
-              $('input[name="daterange"]').daterangepicker({
-                ranges: {
-                'Today': [moment(), moment()],
-                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-            },
-                "alwaysShowCalendars": true,
-                "autoApply": true,
-                "startDate": "{{startdate}}",
-                "endDate": "{{enddate}}"
-            }, function(start, end, label) {
-              $('#daterangeform submit').click()
-            });
-            });
-            </script>
-        </div>
         </section>
 
         </section>

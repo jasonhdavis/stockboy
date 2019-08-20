@@ -1,6 +1,5 @@
-<script src="https://cdn.jsdelivr.net/jsbarcode/3.6.0/JsBarcode.all.min.js"></script>
-
 {% extends 'admin/master.html' %}
+
 {% block body %}
 {{ super() }}
 
@@ -10,7 +9,9 @@
     <h1>Sales</h1>
   <ol class="breadcrumb">
       <li><a href="../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
-      <li class="active"><a href="#"><i class="fa fa-area-chart"></i>Sales</a></li>
+      <li><a href="#"><i class="fa fa-area-chart"></i>Sales</a></li>
+      <li class="active"><a href="#"><i class="fa fa-area-dollar"></i>COGs</a></li>
+
 
   </ol>
   {% include 'admin/daterange.html' %}
@@ -19,16 +20,16 @@
 <section class="content">
   <!--TOP BAR STAT BOXES -->
   <div class="row">
-  {% set value = "${:,.2f}".format(session['top_bar']['gross_sales']) %}
+  {% set value = "${:,.2f}".format(session['top_bar']['cogs']) %}
 
-  {{ parts.smallbox('Gross Sales', value=value, color='bg-success' )}}
+  {{ parts.smallbox('Cost of Goods Sold', value=value, color='bg-success' )}}
 <!-- ./col -->
 
-{{ parts.smallbox('Shipping Charged', value="${:,.2f}".format(session['top_bar']['shipping']), color='bg-info' )}}
+{{ parts.smallbox('Qty Sold', value=session['top_bar']['total_qty'], color='bg-info') }}
 
-{{ parts.smallbox('Discounts', value="${:,.2f}".format(session['top_bar']['discounts']), color='bg-warning' )}}
+{{ parts.smallbox('Gross Profit', value=session['top_bar']['gross_profit'], color='bg-warning' ) }}
 
-{{ parts.smallbox('Average Burn Rate', value=session['top_bar']['avg_burn'], color='bg-danger' )}}
+{{ parts.smallbox('Cost Per Day', value=session['top_bar']['cost_per_day'], color='bg-danger' ) }}
 
 </div>
 <!-- /.row -->
@@ -44,29 +45,30 @@
 
     <thead>
         <tr>
+
             <th class="th-sm">Sku</th>
             <th class="th-sm">Name</th>
             <th class="th-sm">QTY Sold</th>
-            <th class="th-sm">Sales</th>
-            <th class="th-sm">Daily Burn Rate</th>
+            <th class="th-sm">Cost</th>
+            <th class="th-sm">Gross Profit</th>
+            <th class="th-sm">Cost Per Day</th>
 
         </tr>
     </thead>
     <tbody >
       {% for item in session['sku_sales_dict'].values() %}
         <tr>
+
             <td width="10%">{{item['sku']}}
             <br><img width="100px" src="{{item['img']}}"</td>
-            <td width="40%"><a href="../product/{{item['sku']}}">{{item['name']}}</a></td>
-            <td width="10%">{{ "{:,.0f}".format(item['qty']) }}</td>
-            <td width="10%"><svg class="barcode" jsbarcode-format="upc" jsbarcode-value="{{item['sku']}}" jsbarcode-textmargin="0" jsbarcode-fontoptions="bold"></svg>
-              <a class="print">Print</a> |
-              <a href="#" class="generate">Generate</a>
-
-</td>
-            <td width="10%">{{ "{:,.1f}".format(item['burn']) }}</td>
+            <td width="40%"><a href="../../product/{{item['sku']}}">{{item['name']}}</a></td>
+            <td width="10%">{{ item['qty'] }}</td>
+            <td width="10%">${{ "{:,.2f}".format(item['cost']) }}</td>
+            <td width="10%">$ {{ "{:,.2f}".format(item['gross']) }} </td>
+            <td width="10%">${{ "{:,.2f}".format(item['daily_cost']) }}</td>
 
         </tr>
+
         {% endfor %}
     </tbody>
 </table>
@@ -94,17 +96,17 @@
       ],
         datasets : [{
           type: 'line',
-          label:'Sales',
+          label:'Cost',
           backgroundColor: gradientFill,
           pointBackgroundColor: "rgba(56, 96, 175, .8)",
           pointRadius:3,
           pointPadding: 1,
           lineTension: 0.25,
           data : [
-          {% for year in session['by_day_dict'].values() %}
-          {% for month in year.values() %}
-          {% for day in month.values() %}
-            {{day['sales'] }},
+          {% for year in session['by_day_dict'].keys() %}
+          {% for month in session['by_day_dict'][year].keys() %}
+          {% for day in session['by_day_dict'][year][month].keys() %}
+            {{ session['by_day_dict'][year][month][day]['meta']['cost'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}
@@ -156,8 +158,8 @@
     <script>
       $(document).ready(function () {
         $('#sales-by-sku').DataTable({
-         "paging": false, // false to disable pagination (or any other option)
-         "order":[[2, "desc"]],
+         "paging": true, // false to disable pagination (or any other option)
+         "order":[[4, "desc"]],
          'iDisplayLength' : 100,
          "language":{
            "search":"",
@@ -166,7 +168,6 @@
           });
       $('.dataTables_length').addClass('bs-select');
     });
-
     </script>
 
     <script>
@@ -201,8 +202,7 @@
               downloadCSV(csv.join("\n"), filename);
           }
 
-    JsBarcode(".barcode").init();
-
+          JsBarcode(".barcode").init();
 
     </script>
 
