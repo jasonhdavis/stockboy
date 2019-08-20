@@ -357,11 +357,14 @@ class StockBoy() :
             for month in year.values() :
                 for day in month.keys():
                     month[day] = {
+                        'meta':{
                         'sales':0,
+                        'cogs':0,
+                        'gross':0,
                         'qty':0,
                         'fba':0,
                         'discounts':0,
-                        'shipping':0,
+                        'shipping':0},
                         'channel':{}
                         }
 
@@ -371,6 +374,8 @@ class StockBoy() :
         shipped_to_amz = 0
         total_discounts = 0
         total_shipping = 0
+        total_cogs = 0
+        total_gross = 0
         total_inventory = session['inventory_dict']['meta']['total_stock'] + session['fba_dict']['meta']['total_stock']
         total_stock_value = session['inventory_dict']['meta']['stock_value'] + session['fba_dict']['meta']['stock_value']
         ### Supporting Variables
@@ -413,6 +418,8 @@ class StockBoy() :
 
             order_total = order['orderTotal']
             order_qty = 0
+            order_cogs = 0
+            order_gross = 0
             shipping_amt = order['shippingAmount']
             street1 = order['shipTo']['street1']
             customer_name = order['shipTo']['name']
@@ -451,6 +458,23 @@ class StockBoy() :
                 img = item['imageUrl']
                 name = item['name']
 
+                if amz_transfer :
+                    bdd_thisday['meta']['fba']+= qty
+                    shipped_to_amz+= qty
+
+                    continue
+
+                if item_sku in inventory_dict :
+                    if 'SB Cost' in inventory_dict[item_sku]:
+                        cost = inventory_dict[item_sku]['SB Cost']
+                    else :
+                        cost = 0
+                else :
+                    cost = 0
+                cogs = cost*qty
+                gross = price - cogs
+                order_cogs += cogs
+                order_gross += gross
                 ## Make all discounts a negative number
                 if price < 0 or 'discount' in name.lower() :
                     if price > 0 :
@@ -459,6 +483,8 @@ class StockBoy() :
                     discounts += price
                     calculated_total += price
                     qty = 0 #Do not count discount as an item
+                else :
+                    calculated_total += qty*price
 
                 if item_sku in sku_category_dict :
                     category_id = sku_category_dict[item_sku][0]
@@ -467,29 +493,26 @@ class StockBoy() :
                 else:
                     category_id = None
                     category_name = 'None'
-                ## If sent to Amazon, avoid qty double count
 
-                if amz_transfer :
-                    bdd_thisday['fba']+= qty
-                    shipped_to_amz+= qty
-
-                    continue
 
                 ## Amazon orders have exited, add to total qty count which gets added to topbar total qty
                 order_qty += qty
                 ## Here's where we should look into issues topline total
-                calculated_total += qty*price
 
 
                 ### Items not transfered to Amazon get added to By Day Dict
                 if item_sku in bdd_thisday :
                     bdd_thisday[item_sku]['sales']+= price*qty
                     bdd_thisday[item_sku]['qty']+= qty
+                    bdd_thisday[item_sku]['cogs']+= cogs
+                    bdd_thisday[item_sku]['gross']+= gross
                     ## Historic Stock Value Goes here
                 else :
                     bdd_thisday[item_sku] = {
                         'sales': price*qty,
-                        'qty': qty
+                        'qty': qty,
+                        'cogs': cogs,
+                        'gross': gross
                     }
 
                 ### Items not transfered to Amazon get counted in existing record
@@ -499,13 +522,19 @@ class StockBoy() :
                     ssd['sales'] += price*qty ## Discounts should be handled here?
                     ssd['qty']+= qty
                     ssd['burn'] = float(ssd['qty'])/float(delta_range)
+                    ssd['cogs'] += cogs
+                    ssd['gross']+= gross
+                    ssd['daily_cost'] = float(ssd['cogs'])/float(delta_range)
 
                     if item_sku in inventory_dict :
                         ssd['stock'] = inventory_dict[item_sku]['Available']
 
                     if is_amz :
+
                         ssd['amz-sales'] += price*qty
                         ssd['amz-qty'] += qty
+                        ssd['amz-cogs']+= cogs
+                        ssd['amz-gross']+= gross
                         ssd['asin'] = item['sku']
                         if item_sku in fba_dict:
                             ssd['fba_stock'] = fba_dict[item_sku]['InStockSupplyQty']
@@ -516,11 +545,15 @@ class StockBoy() :
                     if marketplace in ssd['channel']:
                         ssd['channel'][marketplace]['sales'] += price*qty
                         ssd['channel'][marketplace]['qty'] += qty
+                        ssd['channel'][marketplace]['cogs'] += cogs
+                        ssd['channel'][marketplace]['gross'] += gross
 
                     else :
                         ssd['channel'][marketplace] = {
                         'sales':price*qty,
-                        'qty':qty
+                        'qty':qty,
+                        'cogs': cogs,
+                        'gross': gross
                         }
 
 
@@ -534,10 +567,14 @@ class StockBoy() :
                     if is_amz:
                         amz_sales = price*qty
                         amz_qty = qty
+                        amz_cogs = cogs
+                        amz_gross = gross
 
                     else :
                         amz_sales = 0
                         amz_qty = 0
+                        amz_cogs = 0
+                        amz_gross = 0
 
                     sku_sales_dict[item_sku] = {
                     'sku': item_sku,
@@ -546,13 +583,20 @@ class StockBoy() :
                     'img': img,
                     'sales': price*qty,
                     'qty': qty,
+                    'cogs': cogs,
+                    'gross': gross,
                     'burn': qty/delta_range,
+                    'daily_cost': cogs/delta_range,
                     'amz-sales': amz_sales,
                     'amz-qty':amz_qty,
+                    'amz-cogs': amz_cogs,
+                    'amz-gross': amz_gross,
                     'channel':{
                         marketplace:
                             {'sales':price*qty,
-                            'qty':qty
+                            'qty':qty,
+                            'cogs': cogs,
+                            'gross': gross
                             }
                         }
                     }
@@ -575,10 +619,13 @@ class StockBoy() :
 
 
             ## STILL INSIDE ORDER, SET ORDER LEVEL ITEMS ##
+
             #### SALES & QTY BY DAY #####
-            bdd_thisday['sales']+= calculated_total
-            bdd_thisday['qty']+= int(order_qty)
-            bdd_thisday['discounts']+= discounts
+            bdd_thisday['meta']['sales']+= calculated_total
+            bdd_thisday['meta']['qty']+= int(order_qty)
+            bdd_thisday['meta']['discounts']+= discounts
+            bdd_thisday['meta']['cogs']+= order_cogs
+            bdd_thisday['meta']['gross']+= order_gross
 
             if marketplace in bdd_thisday['channel'].keys():
                 bdd_thisday['channel'][marketplace]['sales'] += calculated_total
@@ -595,6 +642,8 @@ class StockBoy() :
             total_sales += calculated_total
             total_discounts += discounts
             total_shipping += shipping_amt
+            total_cogs += order_cogs
+            total_gross += order_gross
 
             #### STORE / MARKETPLACE CHANNEL SALES ####
             ### Can add day dict nested for each marketplace
@@ -670,8 +719,11 @@ class StockBoy() :
         session['top_bar'] = {
             'total_qty': total_qty,
             'total_sales': total_sales,
+            'total_cogs': total_cogs,
+            'total_gross': total_gross,
             'shipped_to_amz':shipped_to_amz,
             'avg_burn':  avg_burn,
+            'cost_per_day': total_cogs / delta_range,
             'qty_per_day': qty_per_day,
             'discounts': total_discounts,
             'shipping': total_shipping,

@@ -106,10 +106,10 @@
           pointPadding: 1,
           lineTension: 0.25,
           data : [
-          {% for year in session['by_day_dict'].values() %}
-          {% for month in year.values() %}
-          {% for day in month.values() %}
-            {{ day['meta']['sales'] }},
+          {% for year in session['by_day_dict'].keys() %}
+          {% for month in session['by_day_dict'][year].keys() %}
+          {% for day in session['by_day_dict'][year][month].keys() %}
+            {{ session['by_day_dict'][year][month][day]['meta']['sales'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}

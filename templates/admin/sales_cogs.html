@@ -20,14 +20,14 @@
 <section class="content">
   <!--TOP BAR STAT BOXES -->
   <div class="row">
-  {% set value = "${:,.2f}".format(session['top_bar']['cogs']) %}
+  {% set value = "${:,.2f}".format(session['top_bar']['total_cogs']) %}
 
   {{ parts.smallbox('Cost of Goods Sold', value=value, color='bg-success' )}}
 <!-- ./col -->
 
 {{ parts.smallbox('Qty Sold', value=session['top_bar']['total_qty'], color='bg-info') }}
 
-{{ parts.smallbox('Gross Profit', value=session['top_bar']['gross_profit'], color='bg-warning' ) }}
+{{ parts.smallbox('Gross Profit', value=session['top_bar']['total_gross'], color='bg-warning' ) }}
 
 {{ parts.smallbox('Cost Per Day', value=session['top_bar']['cost_per_day'], color='bg-danger' ) }}
 
@@ -63,17 +63,19 @@
             <br><img width="100px" src="{{item['img']}}"</td>
             <td width="40%"><a href="../../product/{{item['sku']}}">{{item['name']}}</a></td>
             <td width="10%">{{ item['qty'] }}</td>
-            <td width="10%">${{ "{:,.2f}".format(item['cost']) }}</td>
+            <td width="10%">${{ "{:,.2f}".format(item['cogs']) }}</td>
             <td width="10%">$ {{ "{:,.2f}".format(item['gross']) }} </td>
             <td width="10%">${{ "{:,.2f}".format(item['daily_cost']) }}</td>
 
         </tr>
 
+
         {% endfor %}
     </tbody>
+
 </table>
   </div>
-
+{{session['by_day_dict']}}
 {% endblock body %}
 {% block tail %}
 
@@ -106,7 +108,7 @@
           {% for year in session['by_day_dict'].keys() %}
           {% for month in session['by_day_dict'][year].keys() %}
           {% for day in session['by_day_dict'][year][month].keys() %}
-            {{ session['by_day_dict'][year][month][day]['meta']['cost'] }},
+            {{ session['by_day_dict'][year][month][day]['meta']['cogs'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}
