@@ -1375,13 +1375,13 @@ class ProfileView(BaseView):
                     row['Allocated'] = ws.cell_value(r,7)
                     row['Available'] = ws.cell_value(r,8)
                     row['Reorder Threshold'] = ws.cell_value(r,9)
-                    row['Owner'] = email
+                    row['Owner'] = session['email']
                     mongo.db.inventory.update({'SKU':str(sku)},{'$set': row},upsert=True)
                     r = r+1
                     update_count+=1
                 flash('Imported '+ str(update_count) + ' Inventory Stock Values')
-
-                mongo.db.mongo_user.update({'email':email},{'$set':{'inventory_updated':nice_now}})
+                sb.ExpireCache('init_timeout')
+                mongo.db.mongo_user.update({'email':session['email']},{'$set':{'inventory_updated':nice_now}})
             return redirect(url_for('import.UserProfile'))
 
         if aliasform.validate_on_submit() and aliasform.submit.data:

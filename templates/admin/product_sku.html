@@ -41,6 +41,9 @@
   <h5>Category: {{product_dict[sku]['productCategory']['name']}}</h5>
   <h5>Weight: {{product_dict[sku]['weight']}}</h5>
   <h5>Dimensions: {{product_dict[sku]['height']}} x {{product_dict[sku]['width']}} x {{product_dict[sku]['length']}}</h5>
+  <h5>Fullfillment SKU: {{fba_dict[sku]['SellerSKU']}} </h5>
+  <h5>ASIN: <a href="https://www.amazon.com/gp/product/{{fba_dict[sku]['ASIN']}}">{{fba_dict[sku]['ASIN']}}</a></h5>
+
   </div>
   <div class="col-sm-4 float-left">
   <h4 style="border-bottom:#000 1px solid">Inventory</h4>
@@ -53,9 +56,7 @@
   <h5>Stock Value: ${{"{:,.2f}".format(session['top_bar']['total_stock_value'])}} </h5>
 
   {% if sku in fba_dict %}
-  <h5>ASIN: <a href="https://www.amazon.com/gp/product/{{fba_dict[sku]['ASIN']}}">{{fba_dict[sku]['ASIN']}}</a></h5>
   <h5>FBA Network In stock: {{fba_dict[sku]['InStockSupplyQty']}}</h5>
-  <h5>Fullfillment SKU: {{fba_dict[sku]['SellerSKU']}} </h5>
   {% endif %}
 
   </div>
@@ -240,7 +241,7 @@
                   {% for year in session['by_day_dict'].values() %}
                   {% for month in year.values() %}
                   {% for day in month.values() %}
-                    {{ day['sales'] }},
+                    {{ day['meta']['sales'] }},
                   {% endfor %}
                   {% endfor %}
                   {% endfor %}
