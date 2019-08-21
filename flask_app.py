@@ -983,7 +983,6 @@ class StockBoy() :
         session['top_bar']['supplier_average_lead_time'] = average_lead_time / count
 
 
-
     def CustomerDictBuilder(self):
         pass
 
@@ -991,7 +990,7 @@ class StockBoy() :
 
         cursor = mongo.db.shipments.find({'$and':[
         {'createDate':{'$lte': end, '$gte':start}},
-        {'owner':email}]})
+        {'owner':session['email']}]})
 
         ship_dict = {}
         for item in cursor :
@@ -1577,7 +1576,7 @@ class InventoryView(BaseView):
 
                     # Rebuild Inventory Dict before telling the user saved
                     sb.SSInventoryBuilder()
-
+                    sb.ExpireCache('orders_cache')
                     return jsonify(data={'message': 'Cost is {}'.format(costform.cost.data)})
 
         sb.DateFormController(formvalue)
@@ -2066,7 +2065,7 @@ class CustomerView(BaseView) :
         #Query - get orders for current users in date range
         range_search = mongo.db.orders.find({'$and':[
         {'orderDate':{'$lte': end, '$gte':start}},
-        {'owner':email}]})
+        {'owner':session['email']}]})
         num_orders = range_search.count()
 
         # Returns dictionary of orders, centered around customer details

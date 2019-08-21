@@ -20,16 +20,19 @@
 <section class="content">
   <!--TOP BAR STAT BOXES -->
   <div class="row">
-  {% set value = "${:,.2f}".format(session['top_bar']['total_cogs']) %}
+  {% set cogs = "${:,.2f}".format(session['top_bar']['total_cogs']) %}
+  {% set qty = "${:,.0f}".format(session['top_bar']['total_qty']) %}
+  {% set gross = "${:,.2f}".format(session['top_bar']['total_gross']) %}
+  {% set cpd = "${:,.2f}".format(session['top_bar']['cost_per_day']) %}
 
-  {{ parts.smallbox('Cost of Goods Sold', value=value, color='bg-success' )}}
+  {{ parts.smallbox('Cost of Goods Sold', value=cogs, color='bg-success' )}}
 <!-- ./col -->
 
-{{ parts.smallbox('Qty Sold', value=session['top_bar']['total_qty'], color='bg-info') }}
+{{ parts.smallbox('Qty Sold', value=qty, color='bg-info') }}
 
-{{ parts.smallbox('Gross Profit', value=session['top_bar']['total_gross'], color='bg-warning' ) }}
+{{ parts.smallbox('Gross Profit', value=gross, color='bg-warning' ) }}
 
-{{ parts.smallbox('Cost Per Day', value=session['top_bar']['cost_per_day'], color='bg-danger' ) }}
+{{ parts.smallbox('Cost Per Day', value=cpd, color='bg-danger' ) }}
 
 </div>
 <!-- /.row -->
