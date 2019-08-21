@@ -1017,8 +1017,122 @@ class StockBoy() :
 
 ## To be depreciated
 
+def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
+    shipped_to_amz = 0
+    item_chart = []
+    sku_list = []
+    for order in cursor :
+        # Sum Order Totals
+        if order['orderStatus'] == 'cancelled':
+            continue
 
+        order_date = order['orderDate']
+        amz_loc = ['24208 SAN MICHELE RD','900 PATROL RD','10240 OLD DOWD RD','705 BOULDER DR','6835 W BUCKEYE RD']
+        # Count ship to Amz Quantity to avoid
+        ship_to = order['shipTo']['name']
 
+        ship_add = order['shipTo']['street1'].upper()
+        #flash(ship_add)
+
+        #.find('AMAZON') >-1 or ship_to.find('GOLDEN STATE') >-1:
+        ship_to = order['shipTo']['name'].upper()
+
+        if ship_add in amz_loc :
+            for item in order['items'] :
+                sku = item['sku']
+                if sku == item_sku or item_sku == 'All':
+                    shipped_to_amz += item['quantity']
+                # Do nothing with these duplicate quantities
+            continue
+
+        # Count item qty & sales
+        # Join on product Alias
+        for item in order['items']:
+            row = []
+
+            sku = item['sku']
+
+            if sku in alias_dict :
+                sku = alias_dict[sku]
+
+            ## To be implemented ##
+
+            if sku == "":
+                continue
+
+            name = item['name']
+            qty = item['quantity']
+            sales = item['unitPrice']*qty
+
+            store_id = order['advancedOptions']['storeId']
+
+            if sku in sku_list :
+                sku_idx = sku_list.index(sku)
+                item_chart[sku_idx][2] += sales
+                item_chart[sku_idx][3] += qty
+                if sku == item_sku or item_sku == 'All':
+                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
+
+            else :
+                row.append(sku)
+                row.append(name)
+                row.append(sales)
+                row.append(qty)
+                sku_list.append(sku)
+                item_chart.append(row)
+                if sku == item_sku or item_sku == 'All' :
+                    date_dict[order_date.year][order_date.month][order_date.day]+= sales
+
+    #Build chart value list
+    values=[]
+
+    for year in date_dict.values():
+        for month in year.values():
+          for day in month.values() :
+              values.append(day)
+
+    return item_chart, values, shipped_to_amz
+
+def AliasDictBuilder(cursor):
+    ## Alias Dictionary can be built based on context
+    ## For example, a single sku or all Owner Alias, etc
+    alias_dict = {}
+    for alias in cursor :
+        alias_dict[alias['Alias']] = alias['Product SKU']
+
+#    cursor.rewind()
+
+#    alias_dict['reverse'] = {}
+#    reverse = alias_dict['reverse']
+#    for alias in cursor :
+#        product_sku = alias['Product SKU']
+#        alias = alias['Alias']
+#        if alias in reverse :
+#        alias_dict['reverse'][alias['Alias']]
+
+    return alias_dict
+def FBADictBuilder() :
+    cursor = mongo.db.fba.find({'Owner':email})
+    fba_dict = {}
+    for item in cursor :
+        asin = item['asin']
+
+        if asin not in fba_dict :
+            fba_dict[asin] = {}
+
+            fba_dict[asin]['afn-fulfillable-quantity'] = 0
+            fba_dict[asin]['afn-warehouse-quantity'] = 0
+            fba_dict[asin]['afn-total-quantity'] = 0
+            fba_dict[asin]['afn-inbound-shipped-quantity'] = 0
+            fba_dict[asin]['afn-reserved-quantity'] = 0
+
+        fba_dict[asin]['afn-fulfillable-quantity'] += int(item['afn-fulfillable-quantity'])
+        fba_dict[asin]['afn-warehouse-quantity'] += int(item['afn-warehouse-quantity'])
+        fba_dict[asin]['afn-total-quantity'] += int(item['afn-total-quantity'])
+        fba_dict[asin]['afn-inbound-shipped-quantity'] += int(item['afn-inbound-shipped-quantity'])
+        fba_dict[asin]['afn-reserved-quantity'] += int(item['afn-reserved-quantity'])
+
+    return fba_dict
 ### Duplicated Into Stockboy class
 def DateDictBuilder(start,end):
     ## Build date range dictionary
@@ -1622,14 +1736,14 @@ class ProductView(BaseView):
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
-        date_dict, labels = DateDictBuilder(start, end)
+        date_dict, labels = sb.DateDictBuilder(start, end)
 
         email = session['email']
         ### Queries ###
 
         #Build Alias Dictionary - all owner alias values
         alias_search = mongo.db.alias.find({'Owner':email})
-        alias_dict = AliasDictBuilder(alias_search)
+        alias_dict = sb.AliasDictBuilder(alias_search)
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
