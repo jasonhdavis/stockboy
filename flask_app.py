@@ -2065,7 +2065,7 @@ class CustomerView(BaseView) :
         #Query - get orders for current users in date range
         range_search = mongo.db.orders.find({'$and':[
         {'orderDate':{'$lte': end, '$gte':start}},
-        {'owner':session['email']}]})
+        {'owner':session['email']} ]})
         num_orders = range_search.count()
 
         # Returns dictionary of orders, centered around customer details

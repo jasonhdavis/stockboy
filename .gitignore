@@ -8,6 +8,7 @@ __pycache__/
 config.py
 cron/
 uploads/
+cache/
 
 # C extensions
 *.so
