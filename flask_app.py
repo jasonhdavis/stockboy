@@ -1743,7 +1743,7 @@ class ProductView(BaseView):
 
         #Build Alias Dictionary - all owner alias values
         alias_search = mongo.db.alias.find({'Owner':email})
-        alias_dict = sb.AliasDictBuilder(alias_search)
+        alias_dict = AliasDictBuilder(alias_search)
 
         ## Find Owner Orders in Date Range
         range_search = mongo.db.orders.find({'$and':[
