@@ -1736,7 +1736,7 @@ class ProductView(BaseView):
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
         delta_range = (end - start).days
-        date_dict, labels = sb.DateDictBuilder(start, end)
+        date_dict, labels = DateDictBuilder(start, end)
 
         email = session['email']
         ### Queries ###
