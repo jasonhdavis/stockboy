@@ -1404,14 +1404,14 @@ class ProfileView(BaseView):
                     row['Alias'] = str(ws.cell_value(r,1))
                     row['Store Name'] = str(ws.cell_value(r,2))
                     row['Store ID'] = str(ws.cell_value(r,3))
-                    row['Owner'] = email
+                    row['Owner'] = session['email']
                     mongo.db.alias.update({'Alias':str(ws.cell_value(r,1))},row,upsert=True)
                     r+=1
                 flash('Imported ' + str(col_len-2) + ' Alias Records')
 
                 sb.ExpireCache('init_timeout')
 
-                mongo.db.mongo_user.update({'email':email},{'$set':{'alias_updated':now}})
+                mongo.db.mongo_user.update({'email':session['email']},{'$set':{'alias_updated':now}})
             return redirect(url_for('import.UserProfile'))
 
         if request.method == 'POST' and fbaform.submit.data:
