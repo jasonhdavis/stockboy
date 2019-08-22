@@ -886,6 +886,7 @@ class StockBoy() :
 
         session['inventory_dict'] = inventory_dict
 
+    #Amz Address List Here
     def FBADictBuilder(self) :
         #build address list
         address_list = []
@@ -1395,7 +1396,7 @@ class ProfileView(BaseView):
             if ws.cell_value(0,2) != 'Store Name':
                 flash('Uploaded File does not match expected Alias Report Format')
             else:
-                mongo.db.alias.remove({"Owner":email})
+                mongo.db.alias.remove({"Owner":session['email']})
 
                 while r < col_len :
                     row = {}
