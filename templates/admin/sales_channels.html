@@ -80,7 +80,7 @@
             {% for month in year.values() %}
               {% for day in month.values() %}
                 {%  if marketplace in day['channel'] %}
-                  {{ day['channel'][marketplace]['sales'] }},
+                  {{ day['channel'][marketplace]['sales'] | round(2) }},
                 {% else %}
                   0,
                 {%endif%}

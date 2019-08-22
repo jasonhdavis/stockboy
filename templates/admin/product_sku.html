@@ -241,7 +241,7 @@
                   {% for year in session['by_day_dict'].values() %}
                   {% for month in year.values() %}
                   {% for day in month.values() %}
-                    {{ day['meta']['sales'] }},
+                    {{ day['meta']['sales'] | round(2)}},
                   {% endfor %}
                   {% endfor %}
                   {% endfor %}

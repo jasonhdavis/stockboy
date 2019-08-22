@@ -110,7 +110,7 @@
           {% for year in session['by_day_dict'].keys() %}
           {% for month in session['by_day_dict'][year].keys() %}
           {% for day in session['by_day_dict'][year][month].keys() %}
-            {{ session['by_day_dict'][year][month][day]['meta']['cogs'] }},
+            {{ session['by_day_dict'][year][month][day]['meta']['cogs'] | round(2)}},
           {% endfor %}
           {% endfor %}
           {% endfor %}
