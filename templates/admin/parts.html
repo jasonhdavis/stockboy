@@ -39,7 +39,7 @@
 {%- endmacro %}
 
 
-{% macro piechart(dict=results['category_sales_dict'], label_key='name', value_key='sales', element=results['element']) -%}
+{% macro piechart(dict=results['category_sales_dict'], label_key='name', value_key='sales', element=results['element'], round=False) -%}
 
     <script>
       var pie_element_{{element}} = document.getElementById('pie_chart_{{element}}').getContext('2d');
@@ -54,7 +54,11 @@
 
           data : [
       {% for category in dict.values() %}
-              {{ category[value_key] }},
+            {% if round %}
+              {{ category[value_key] | round(2) }},
+            {% else %}
+            {{ category[value_key]}},
+            {% endif %}
             {% endfor %}]
           ,
           backgroundColor: colors}
