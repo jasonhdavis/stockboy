@@ -189,8 +189,8 @@
 
     </script>
 
-    {{ parts.piechart(dict=session['store_sales_dict'], element='marketplace') }}
-    {{ parts.piechart(dict=session['category_sales_dict'], element='categories') }}
+    {{ parts.piechart(dict=session['store_sales_dict'], element='marketplace', round=True) }}
+    {{ parts.piechart(dict=session['category_sales_dict'], element='categories', round=True) }}
 
 
 {% endblock tail %}

@@ -208,7 +208,7 @@
   {% block tail %}
 
   {{ parts.chartglobals() }}
-  {{ parts.piechart(dict=session['store_sales_dict'], label_key='name', value_key='sales', element="markets")}}
+  {{ parts.piechart(dict=session['store_sales_dict'], label_key='name', value_key='sales', element="markets", round=True)}}
   <script>
       // line chart canvas
       var mychart = document.getElementById("chart").getContext("2d");

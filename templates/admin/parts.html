@@ -55,7 +55,7 @@
           data : [
       {% for category in dict.values() %}
             {% if round %}
-              {{ category[value_key] | round(2) }},
+              {{ "%.2f" % category[value_key] }},
             {% else %}
             {{ category[value_key]}},
             {% endif %}
