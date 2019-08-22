@@ -162,7 +162,7 @@
 
       data : [
         {% for value in values %}
-          {{ value }},
+          {{ "%.2f" % value  }},
         {% endfor %}
         ]
       }]
