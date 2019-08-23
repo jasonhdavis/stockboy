@@ -444,7 +444,7 @@ class StockBoy() :
                 marketplaces_with_sales.append(marketplace)
             is_amz = False
             amz_transfer = self.AMZCheck(street1, state)
-
+            order['amz_transfer'] = amz_transfer
             if marketplace == 'Amazon':
                 shipping_amt = 0
                 is_amz = True
@@ -455,6 +455,7 @@ class StockBoy() :
             for item in order['items'] :
 
                 item_sku = self.SKUFlatten(item['sku'])
+                item['flat_sku'] = item_sku
                 ordered_together.append(item_sku)
                 if target_sku != 'All' and target_sku != item_sku:
                     ## Ineffecient method of searching for orders matching target sku
@@ -668,6 +669,8 @@ class StockBoy() :
             total_cogs += order_cogs
             total_gross += order_gross
             total_orders +=1
+
+            order['orderQuantity'] = order_qty
 
             #### STORE / MARKETPLACE CHANNEL SALES ####
             ### Can add day dict nested for each marketplace
