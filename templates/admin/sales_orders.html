@@ -6,12 +6,11 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>Sales</h1>
+    <h1>Orders</h1>
   <ol class="breadcrumb">
-      <li><a href="../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
-      <li><a href="#"><i class="fa fa-area-chart"></i>Sales</a></li>
-      <li class="active"><a href="#"><i class="fa fa-area-dollar"></i>COGs</a></li>
-
+      <li><a href="../../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+      <li class="active"><a href="../"><i class="fa fa-area-chart"></i>Sales</a></li>
+      <li class="active"><i class="fa fa-sticky-note-o"></i> Orders</li>
 
   </ol>
   {% include 'admin/daterange.html' %}
@@ -20,65 +19,74 @@
 <section class="content">
   <!--TOP BAR STAT BOXES -->
   <div class="row">
-  {% set cogs = "${:,.2f}".format(session['top_bar']['total_cogs']) %}
-  {% set qty = "{:,.0f}".format(session['top_bar']['total_qty']) %}
-  {% set gross = "${:,.2f}".format(session['top_bar']['total_gross']) %}
-  {% set cpd = "${:,.2f}".format(session['top_bar']['cost_per_day']) %}
+  {% set value = "${:,.2f}".format(session['top_bar']['gross_sales']) %}
 
-  {{ parts.smallbox('Cost of Goods Sold', value=cogs, color='bg-success' )}}
+  {{ parts.smallbox('Total Orders', value=session['top_bar']['total_orders'], color='bg-success' )}}
 <!-- ./col -->
 
-{{ parts.smallbox('Qty Sold', value=qty, color='bg-info') }}
+{{ parts.smallbox('Shipping Charged', value="${:,.2f}".format(session['top_bar']['shipping']), color='bg-info' )}}
 
-{{ parts.smallbox('Gross Profit', value=gross, color='bg-warning' ) }}
+{{ parts.smallbox('Discounts', value="${:,.2f}".format(session['top_bar']['discounts']), color='bg-warning' )}}
 
-{{ parts.smallbox('Cost Per Day', value=cpd, color='bg-danger' ) }}
+{{ parts.smallbox('Average Burn Rate', value=session['top_bar']['avg_burn'], color='bg-danger' )}}
 
 </div>
 <!-- /.row -->
 <!-- Main row -->
 <div class="row">
+  <div class="col-lg-12">
 
 <canvas id='line_chart_sales_qty'></canvas>
+</div>
 
 </div>
 <div class="row">
+  <div class="col-lg-12">
   <table id="sales-by-sku" class="table table-striped table-bordered table-sm">
     <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
 
     <thead>
         <tr>
 
-            <th class="th-sm">Sku</th>
-            <th class="th-sm">Name</th>
-            <th class="th-sm">QTY Sold</th>
-            <th class="th-sm">Cost</th>
-            <th class="th-sm">Gross Profit</th>
-            <th class="th-sm">Cost Per Day</th>
+            <th class="th-sm">Order ID</th>
+            <th class="th-sm">Order Date</th>
+            <th class="th-sm">Store name</th>
+            <th class="th-sm">Ship To Name</th>
+            <th class="th-sm">Items</th>
+            <th class="th-sm">Qty</th>
 
         </tr>
     </thead>
     <tbody >
-      {% for item in session['sku_sales_dict'].values() %}
+      {% for order in session['orders_dict'].values() %}
         <tr>
 
-            <td width="10%">{{item['sku']}}
-            <br><img width="100px" src="{{item['img']}}"</td>
-            <td width="40%"><a href="../../product/{{item['sku']}}">{{item['name']}}</a></td>
-            <td width="10%">{{ item['qty'] }}</td>
-            <td width="10%">${{ "{:,.2f}".format(item['cogs']) }}</td>
-            <td width="10%">$ {{ "{:,.2f}".format(item['gross']) }} </td>
-            <td width="10%">${{ "{:,.2f}".format(item['daily_cost']) }}</td>
+            <td width="10%"><a href="./{{order['orderId']}}">{{order['orderId']}}</a></td>
+
+            <td width="10%">{{order['orderDate'] }}</td>
+            {% set storeid = order['advancedOptions']['storeId'] %}
+            <td width="10%">{{session['store_dict'][storeid]['storeName'] }}</td>
+
+            <td width="10%">{{order['shipTo']['name']}}</td>
+
+            <td width="40%">
+              {% set ns=namespace(qty= 0) %}
+
+            {% for item in order['items'] %}
+              {{ item['name'] }},
+              {% set ns.qty= ns.qty + item['quantity']%}
+            {% endfor %}
+            <td width="10%">{{ ns.qty }} </td>
 
         </tr>
 
-
         {% endfor %}
     </tbody>
-
 </table>
   </div>
+</div>
 {% endblock body %}
+
 {% block tail %}
 
 {{ parts.chartglobals() }}
@@ -99,23 +107,24 @@
         {% endfor %}
       ],
         datasets : [{
-          type: 'line',
-          label:'Cost',
+          type: 'bar',
+          label:'Orders',
           backgroundColor: gradientFill,
           pointBackgroundColor: "rgba(56, 96, 175, .8)",
           pointRadius:3,
           pointPadding: 1,
-          lineTension: 0.25,
+          lineTension: 0.2,
           data : [
+
           {% for year in session['by_day_dict'].keys() %}
           {% for month in session['by_day_dict'][year].keys() %}
           {% for day in session['by_day_dict'][year][month].keys() %}
-            {{ session['by_day_dict'][year][month][day]['meta']['cogs'] | round(2)}},
+            {{ session['by_day_dict'][year][month][day]['meta']['orders'] }},
           {% endfor %}
           {% endfor %}
           {% endfor %}
         ]
-          }
+      }
         ]
       };
 
@@ -163,7 +172,7 @@
       $(document).ready(function () {
         $('#sales-by-sku').DataTable({
          "paging": true, // false to disable pagination (or any other option)
-         "order":[[4, "desc"]],
+         "order":[[1, "desc"]],
          'iDisplayLength' : 100,
          "language":{
            "search":"",
@@ -206,9 +215,46 @@
               downloadCSV(csv.join("\n"), filename);
           }
 
-          JsBarcode(".barcode").init();
+
 
     </script>
 
+
+<!---
+
+nice block of code for repeating data for chart datasets
+,
+{% for channel in session['marketplaces_with_sales']%}
+
+{
+  type: 'bar',
+  label: '{{channel}}',
+  backgroundColor: gradientFill,
+  pointBackgroundColor: "rgba(56, 96, 175, .8)",
+  pointRadius:3,
+  pointPadding: 1,
+  lineTension: 0.2,
+  data : [
+  {% for year in session['by_day_dict'].keys() %}
+  {% for month in session['by_day_dict'][year].keys() %}
+  {% for day in session['by_day_dict'][year][month].keys() %}
+    {% if channel in session['by_day_dict'][year][month][day]['channel'] %}
+    {{ session['by_day_dict'][year][month][day]['channel'][channel]['orders']  }},
+    {% else %}
+    0,
+    {% endif %}
+  {% endfor %}
+  {% endfor %}
+  {% endfor %}
+]
+},
+{% endfor %}
+
+
+
+
+
+
+--->
 
 {% endblock tail %}

@@ -129,11 +129,46 @@
 </div>
         <!-- /.row -->
         <!-- Main row -->
-        <canvas id="chart"></canvas>
-        <div class="row">
-          <div class="col-md-6 col-6">
 
-          <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
+        <canvas id="chart"></canvas>
+        <hr>
+        <div class="row col-12">
+
+        {% if 'order_list' in ssd[sku] %}
+
+        <div class="col-md-4 col-4">
+          <h3>Orders With this Item</h3>
+        <table id="orders-table" class="table table-striped table-bordered table-sm">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Shipped To</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order_id in ssd[sku]['order_list'] %}
+            <tr>
+            <td width="33%">
+              <a href="../sales/orders/{{order_id}}">
+                {{order_id}}
+              </a>
+            </td>
+            <td width="33%">
+              {{session['orders_dict'][order_id]['shipTo']['name']}}
+            </td>
+            <td width="33%">
+              {{session['orders_dict'][order_id]['orderTotal']}}
+            </tr>
+            {% endfor %}
+          </tbody>
+          </table>
+          </div>
+        {% endif %}
+
+          <div class="col-md-8 col-8">
+            <h3>Sales by Store</h3>
+          <table class="table table-striped table-bordered table-sm">
             <thead>
                 <tr>
 
@@ -142,7 +177,7 @@
                     <th>Sales</th>
                 </tr>
             </thead>
-            <tbody >
+            <tbody>
               {% for store in session['store_sales_dict'].values() %}
                 <tr>
                     <td width="25%">{{store['name']}}</td>
@@ -152,21 +187,14 @@
                 </tr>
                 {% endfor %}
             </tbody>
-        </table>
-          </div>
-          <div class="col-md-6 col-6">
+          </table>
             <canvas id="pie_chart_markets"></canvas>
           </div>
-          {{ session['ordered_with'] }}
-</div>
-
-    </section>
+          </div>
     <!-- /.Left col -->
 
-  </div>
-  <!-- /.row (main row) -->
+  </section>
 
-</section>
 <!-- /.content -->
 {% else %}
 
@@ -287,48 +315,19 @@
 
 
     </script>
-    <script>
 
-      $(document).ready(function() {
-        var supplier_id = "{{ session['product_dict'][sku]['supplier_id'] }}";
-        $('#supplier_details option[value='+supplier_id+']').attr("selected", "selected");
-        $('#supplier_details textarea').append("{{session['product_dict'][sku]['notes']}}")
-          });
-      $(document).ready(function() {
-        $('button#supplier_edit').click(function(){
-          $('form#supplier_details').fadeIn(400);
-          $('#supplier_details_static').fadeOut(100);
+  <script>
+    $(document).ready(function () {
+      $('#orders-table').DataTable({
+       "paging": true, // false to disable pagination (or any other option)
+       "order":[[2, "desc"]],
+       'iDisplayLength' : 25,
+       "language":{
+         "search":"",
+         "searchPlaceholder":"Search. . ."
+        }
         });
-          });
-      $(document).ready(function() {
-        $('button#supplier_edit_close').click(function(){
-          $('form#supplier_details').fadeOut(100);
-          $('#supplier_details_static').fadeIn(400);
-
-        });
-          });
-      $(document).ready(function() {
-          $('#supplier_details').focusout(function (e) {
-              var url = '../product/supplier-details/edit'; // send the form data here.
-              $.ajax({
-                  type: "POST",
-                  url: url,
-                  data: $('#supplier_details').serialize(), // serializes the form's elements.
-                  success: function (data) {
-                      $('#supplier_details span.saved-text').fadeIn(400).fadeOut(400)
-                      console.log(data)  // display the returned data in the console.
-                  }
-              });
-              e.preventDefault(); // block the traditional submission of the form.
-          });
-          // Inject our CSRF token into our AJAX request.
-          $.ajaxSetup({
-              beforeSend: function(xhr, settings) {
-                  if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
-                      xhr.setRequestHeader("X-CSRFToken", "{{ supplierselect.csrf_token._value() }}")
-                  }
-              }
-          })
-      });
+    $('.dataTables_length').addClass('bs-select');
+  });
   </script>
   {% endblock tail %}

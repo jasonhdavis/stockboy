@@ -258,6 +258,7 @@ class StockBoy() :
         ## Simple helper to set the timeout
         session[timer] = now - timedelta(days=100)
 
+
     def IsExpired(self, timer) :
         ## If you wanted to adjust cache duration,
         ## you would do it here
@@ -327,6 +328,7 @@ class StockBoy() :
 
         ### Define a number of outputs that come from iterating through orders
         ### Create all possible dictionaries / outputs at once with a single loop of orders
+        ### Cache this and encourage user to set a default range to maximize speed to delivery
 
         if 'target_sku' in self.results.keys() :
             target_sku = self.results['target_sku']
@@ -346,6 +348,7 @@ class StockBoy() :
         sku_sales_dict = {}
         customer_sales_dict = {}
         ordered_together_dict = {}
+        orders_dict = {}
 
         #channel_sales_dict = {}
 
@@ -363,6 +366,7 @@ class StockBoy() :
                         'gross':0,
                         'qty':0,
                         'fba':0,
+                        'orders': 0,
                         'discounts':0,
                         'shipping':0},
                         'channel':{}
@@ -376,6 +380,8 @@ class StockBoy() :
         total_shipping = 0
         total_cogs = 0
         total_gross = 0
+        total_orders = 0
+
         total_inventory = session['inventory_dict']['meta']['total_stock'] + session['fba_dict']['meta']['total_stock']
         total_stock_value = session['inventory_dict']['meta']['stock_value'] + session['fba_dict']['meta']['stock_value']
         ### Supporting Variables
@@ -402,6 +408,9 @@ class StockBoy() :
         ####
 
         for order in order_cursor :
+            ## Just the raw orders in a dict
+            orders_dict[order['orderId']] = order
+            ## Perhaps the above is a better way to do this
             store_id = order['advancedOptions']['storeId']
             customer_id = order['customerId']
             warehouse_id = order['advancedOptions']['warehouseId']
@@ -525,6 +534,8 @@ class StockBoy() :
                     ssd['cogs'] += cogs
                     ssd['gross']+= gross
                     ssd['daily_cost'] = float(ssd['cogs'])/float(delta_range)
+                    ssd['order_list'].append(order_id)
+
 
                     if item_sku in inventory_dict :
                         ssd['stock'] = inventory_dict[item_sku]['Available']
@@ -539,6 +550,7 @@ class StockBoy() :
                         if item_sku in fba_dict:
                             ssd['fba_stock'] = fba_dict[item_sku]['InStockSupplyQty']
 
+
                     if not ssd['img']:
                         ssd['img'] = img
 
@@ -547,13 +559,15 @@ class StockBoy() :
                         ssd['channel'][marketplace]['qty'] += qty
                         ssd['channel'][marketplace]['cogs'] += cogs
                         ssd['channel'][marketplace]['gross'] += gross
+                        #ssd['channel'][marketplace]['orders'] += 1
 
                     else :
                         ssd['channel'][marketplace] = {
                         'sales':price*qty,
                         'qty':qty,
                         'cogs': cogs,
-                        'gross': gross
+                        #'orders': 1,
+                        'gross': gross,
                         }
 
 
@@ -591,6 +605,7 @@ class StockBoy() :
                     'amz-qty':amz_qty,
                     'amz-cogs': amz_cogs,
                     'amz-gross': amz_gross,
+                    'order_list': [order_id],
                     'channel':{
                         marketplace:
                             {'sales':price*qty,
@@ -626,14 +641,22 @@ class StockBoy() :
             bdd_thisday['meta']['discounts']+= discounts
             bdd_thisday['meta']['cogs']+= order_cogs
             bdd_thisday['meta']['gross']+= order_gross
-
+            bdd_thisday['meta']['orders']+= 1
             if marketplace in bdd_thisday['channel'].keys():
                 bdd_thisday['channel'][marketplace]['sales'] += calculated_total
                 bdd_thisday['channel'][marketplace]['qty'] += int(order_qty)
+                bdd_thisday['channel'][marketplace]['discounts'] += discounts
+                bdd_thisday['channel'][marketplace]['cogs'] += order_cogs
+                bdd_thisday['channel'][marketplace]['gross'] += order_gross
+                bdd_thisday['channel'][marketplace]['orders']+=1
             else :
                 bdd_thisday['channel'][marketplace] = {
                 'sales': calculated_total,
-                'qty': int(order_qty)
+                'qty': int(order_qty),
+                'discounts': discounts,
+                'cogs':  order_cogs,
+                'gross': order_gross,
+                'orders':1,
                 }
 
             ### Calculate Top Level Stats####
@@ -644,6 +667,7 @@ class StockBoy() :
             total_shipping += shipping_amt
             total_cogs += order_cogs
             total_gross += order_gross
+            total_orders +=1
 
             #### STORE / MARKETPLACE CHANNEL SALES ####
             ### Can add day dict nested for each marketplace
@@ -699,6 +723,8 @@ class StockBoy() :
 
         session['ordered_together_dict'] = ordered_together_dict
 
+        ## Orders
+        session['orders_dict'] = orders_dict
         #### Calculate Average Burn Rate ####
         #### Take each burn rate and get an average ###
         ### Multiply by delta_range to get sold per sku per time period ###
@@ -729,7 +755,8 @@ class StockBoy() :
             'shipping': total_shipping,
             'gross_sales': total_sales+total_shipping,
             'total_inventory': total_inventory,
-            'total_stock_value': total_stock_value
+            'total_stock_value': total_stock_value,
+            'total_orders': total_orders
             }
 
     def OrderedTogether(self, sku):
@@ -1431,7 +1458,7 @@ class ProfileView(BaseView):
 class SalesView(BaseView):
     @expose('/', methods=('GET', 'POST'))
     @login_required
-    def SalesReports(self):
+    def SalesIndex(self):
         formvalue = default_range
         if request.method == 'POST':
             formvalue = request.form.get('daterange')
@@ -1439,7 +1466,7 @@ class SalesView(BaseView):
         sb = StockBoy()
         sb.DateFormController(formvalue)
 
-        if session.get('orders_cache') == False :
+        if sb.IsExpired('orders_cache') :
             #flash('Session cached')
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -1496,6 +1523,7 @@ class SalesView(BaseView):
         return self.render('admin/sales_channels.html')
 
     @expose('/<int:store>',methods=('GET', 'POST'))
+    @login_required
     def Channel(self, store):
         ## Date Handling
         formvalue = False
@@ -1556,6 +1584,63 @@ class SalesView(BaseView):
 
 
         return self.render('admin/sales_cogs.html')
+
+    @expose('/orders/', methods=('GET', 'POST'))
+    @login_required
+    def Orders(self):
+        formvalue = default_range
+        if request.method == 'POST':
+            formvalue = request.form.get('daterange')
+        sb = StockBoy()
+
+        sb.DateFormController(formvalue)
+
+        if sb.IsExpired('orders_cache') :
+            #flash('Session cached')
+            cursor = mongo.db.orders.find(
+            {'$and':[
+                {'orderDate':
+                    {'$lte': session['end'],
+                    '$gte':session['start']}
+                },
+                {'owner':session['email']}
+            ]}
+            )
+
+            sb.ReportDictBuilder(cursor)
+            #flash('Orders Built')
+
+        else:
+            pass
+            #flash ('Orders Cached')
+
+        return self.render('admin/sales_orders.html')
+
+    @expose('/orders/<int:orderId>', methods=(['GET']))
+    @login_required
+    def OrderById(self, orderId):
+
+        sb = StockBoy()
+        formvalue = default_range
+        sb.DateFormController(formvalue)
+
+        if str(orderId) not in 'orders_dict'  :
+            #flash('Session cached')
+            cursor = mongo.db.orders.find(
+            {'$and':
+            [{'orderId':orderId},
+            {'owner':session['email']} ]
+            })
+
+
+            sb.ReportDictBuilder(cursor)
+            #flash('Orders Built')
+            sb.ExpireCache('orders_cache')
+        else:
+            pass
+            #flash ('Orders Cached')
+
+        return self.render('admin/sales_orderid.html', orderId=orderId)
 
 class InventoryView(BaseView):
     @expose('/',methods=(['GET','POST']))
@@ -2373,6 +2458,7 @@ admin = flask_admin.Admin(
 admin.add_view(SalesView(name="Sales", category='Sales', endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-area-chart'))
 admin.add_view(SalesView(name="COGS", category='Sales', endpoint='sales/cogs', menu_icon_type='fa', menu_icon_value='fa-cogs'))
 admin.add_view(SalesView(name="Channels", category='Sales', endpoint='sales/channels', menu_icon_type='fa', menu_icon_value='fa-tasks'))
+admin.add_view(SalesView(name="Orders", category='Sales', endpoint='sales/orders', menu_icon_type='fa', menu_icon_value='fa-sticky-note-o'))
 
 
 admin.add_view(InventoryView(name="Inventory", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive', category='Inventory'))
