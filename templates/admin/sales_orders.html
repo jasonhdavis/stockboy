@@ -28,7 +28,7 @@
 
 {{ parts.smallbox('Discounts', value="${:,.2f}".format(session['top_bar']['discounts']), color='bg-warning' )}}
 
-{{ parts.smallbox('Average Burn Rate', value=session['top_bar']['avg_burn'], color='bg-danger' )}}
+{{ parts.smallbox('Cancelled', value=session['top_bar']['total_cancelled'], color='bg-danger' )}}
 
 </div>
 <!-- /.row -->
@@ -42,7 +42,7 @@
 </div>
 <div class="row">
   <div class="col-lg-12">
-  <table id="sales-by-sku" class="table table-striped table-bordered table-sm">
+  <table id="sales-by-sku" class="table table-bordered table-sm">
     <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
 
     <thead>
@@ -59,16 +59,19 @@
     </thead>
     <tbody >
       {% for order in session['orders_dict'].values() %}
-        <tr>
-
-            <td width="10%"><a href="./{{order['orderId']}}">{{order['orderId']}}</a></td>
+        <tr class="{{order['orderStatus']}}">
+            <td class="{{order['orderStatus']}}" width="10%"><a href="./{{order['orderId']}}">{{order['orderId']}}</a></td>
 
             <td width="10%">{{order['orderDate'] }}</td>
             {% set storeid = order['advancedOptions']['storeId'] %}
             <td width="10%">{{session['store_dict'][storeid]['storeName'] }}</td>
 
-            <td width="10%">{{order['shipTo']['name']}}</td>
-
+            <td width="10%">
+              {% if 'customerId' in order %}
+              <a href="{{order['customerId']}}">{{order['shipTo']['name']}}</a></td>
+              {% else %}
+              {{order['shipTo']['name']}}
+              {% endif %}
             <td width="40%">
               {% set ns=namespace(qty= 0) %}
 

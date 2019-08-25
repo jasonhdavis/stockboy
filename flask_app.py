@@ -381,6 +381,7 @@ class StockBoy() :
         total_cogs = 0
         total_gross = 0
         total_orders = 0
+        total_cancelled = 0
 
         total_inventory = session['inventory_dict']['meta']['total_stock'] + session['fba_dict']['meta']['total_stock']
         total_stock_value = session['inventory_dict']['meta']['stock_value'] + session['fba_dict']['meta']['stock_value']
@@ -423,6 +424,7 @@ class StockBoy() :
             order_status = order['orderStatus']
 
             if order_status == 'cancelled':
+                total_cancelled += 1
                 continue
 
             order_total = order['orderTotal']
@@ -750,6 +752,7 @@ class StockBoy() :
             'total_sales': total_sales,
             'total_cogs': total_cogs,
             'total_gross': total_gross,
+            'total_cancelled': total_cancelled,
             'shipped_to_amz':shipped_to_amz,
             'avg_burn':  avg_burn,
             'cost_per_day': total_cogs / delta_range,

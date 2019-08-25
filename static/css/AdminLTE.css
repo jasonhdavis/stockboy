@@ -5832,6 +5832,10 @@ button.bg-dark:focus {
 .table-striped tbody tr.odd {
   background-color: #fff !important;
 }
+
+.table tr.cancelled {
+	background-color: rgba(229,116,125,0.25);
+}
 .table td form input {
 	float: right;
 }
