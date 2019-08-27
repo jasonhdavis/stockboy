@@ -25,7 +25,7 @@ h6 {
 
 <center>
 <svg id="barcode" jsbarcode-format="upc" jsbarcode-value="{{sku}}" jsbarcode-textmargin="0" jsbarcode-fontoptions="bold" jsbarcode-height="100" jsbarcode-width="3" jsbarcode-margin="0"></svg>
-<h6>Real Sic - {{session['product_dict'][sku]['name'][:54]}}</h6>
+<h6>{{session['product_dict'][sku]['name'][:54]}}</h6>
 </center>
 <script>
 

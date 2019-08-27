@@ -9,6 +9,7 @@ config.py
 cron/
 uploads/
 cache/
+stockboy/
 
 # C extensions
 *.so

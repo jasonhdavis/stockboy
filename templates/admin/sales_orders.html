@@ -67,10 +67,11 @@
             <td width="10%">{{session['store_dict'][storeid]['storeName'] }}</td>
 
             <td width="10%">
-              {% if 'customerId' in order %}
-              <a href="{{order['customerId']}}">{{order['shipTo']['name']}}</a></td>
-              {% else %}
+              {% if not order['customerId'] %}
               {{order['shipTo']['name']}}
+
+              {% else %}
+              <a href="../../customers/{{order['customerId']}}">{{order['shipTo']['name']}}</a></td>
               {% endif %}
             <td width="40%">
               {% set ns=namespace(qty= 0) %}

@@ -1,0 +1,56 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+{% if current_user.is_authenticated %}
+
+
+<section class="content">
+    <!-- Left col -->
+        <section class="content-header">
+                <h1>Settings</h1>
+          <ol class="breadcrumb">
+              <li><a href="../"><i class="fa fa-dashboard"></i> Home</a></li>
+              <li class="active"><i class="fa fa-cog"></i>Settings & Import</li>
+          </ol>
+        </section>
+        <section class="content-header">
+<div class="user-profile">
+
+  <div class="row float-left">
+    <div class="col-md-8 col-md-offset-2">
+
+      <div class="card card-info">
+        <form method="POST">
+        <div class="card">
+          <div class="card-header">Email Address</div>
+          <div class="card-body">{{current_user.email}}<br><a href="../change/">Change Password</a></div>
+
+        </div>
+
+        <div class="card card-info">
+          <div class="card-header">Defaults</div>
+
+            <div class="card-body"><strong>Features Placeholder</strong><ul>
+              <li>Default Date Range</li>
+              <li>Reset to default on page switch?</li>
+              <li>Ignore QTY shipped to Amazon?</li>
+              <li>Calculate Discounts per-item -
+              default behavior is to remove from total, but not to remove discounts on an item level
+            Actually difficult to do because of total order qty is unknown - requires order cruncher</li>
+              <li>Timezone</li>
+              <li>Week Starts On</li>
+              <li>Ignore weekends for shipping speed</li>
+            </ul>
+            </div>
+        </form>
+
+  </div>
+
+
+
+  </div>
+</div>
+</section>
+{% endif %}
+
+{% endblock %}

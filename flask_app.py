@@ -45,6 +45,7 @@ from flask_login import LoginManager
 from fba_locations import fba_locations
 from mongoengine.queryset.base import BaseQuerySet
 
+import stripe
 
 import xlrd
 ## We're developing on Python 2 and 3
@@ -73,20 +74,25 @@ login_manager.login_view = 'login'
 now = datetime.now()
 today = datetime(now.year, now.month, now.day, 23,59,59)
 
-
+stripe.api_key = app.config['STRIPE_PRIV']
 
 ##########
 ### PLACEHOLDER VARIABLES FOR USER SETTINGS
 ########
 
 default_range = 29
-
+#barcode_type = 'UPC'
 lead_time = 30
-inventory_target = 90
+inventory_target = 90 #Buffer amount
+#restock_buffer = 30 #Send restock alerts when this # of days reached
 fba_target = 45
 fba_resend = 15
 fba_minimum = 6
-
+#restock_alert_frequency= ['Never','Daily','Weekly','Monthly']
+#timezone = 'EDT'
+#calculate_discount = True
+#ignore_weekend_shipping_speed = True
+#ignore_qty_sent_to_amz = True
 
 ######################################
 ############# FUNCTIONS ##############
@@ -96,9 +102,10 @@ def StripMicroseconds(datestring) :
     output = output[0]
     return output
 
-def DateFormHanlder(formvalue):
+def DateFormHandler(formvalue):
+    ### User Defaults for Date Handling applied here
     if not formvalue :
-        start = today - timedelta(days=29, hours=23, minutes=59, seconds=59)
+        start = today - timedelta(days=default_range, hours=23, minutes=59, seconds=59)
         end = today
     elif type(formvalue) == int :
         start = today - timedelta(days=formvalue, hours=23, minutes=59, seconds=59)
@@ -138,27 +145,38 @@ class StockBoy() :
         email = current_user.email #'lazyluckyfree@gmail.com'#
         self.results= {}
         ### Development Email Address
-        #email = 'lazyluckyfree@gmail.com'
+        #session['email'] = 'lazyluckyfree@gmail.com'
         session['email']=email
 
         #session['cached'] = True
         #flash('Stockboy Initiated')
 
-        cached = self.IsExpired('init_timeout')
-
-        if not cached :
+        if self.IsExpired('init_timeout') :
             session['top_bar'] = {}
-            self.AliasDictBuilder()
             self.StoreDictBuilder()
             self.ShipperDictBuilder()
-            self.SSInventoryBuilder()
-            self.FBADictBuilder()
-            self.StoreDictBuilder()
             self.ProductDictBuilder()
             self.SupplierDictBuilder()
+            self.AMZLocationBuilder()
 
             #flash('Stockboy init dicts built')
             session['init_timeout'] = now
+
+
+        if self.IsExpired('alias_timeout'):
+            self.AliasDictBuilder()
+            session['alias_timeout'] = now
+
+
+        if self.IsExpired('inventory_timeout'):
+            self.SSInventoryBuilder()
+            session['inventory_timeout'] = now
+
+        if self.IsExpired('fba_timeout'):
+            self.FBADictBuilder()
+            session['fba_timeout'] = now
+
+
 
     #############################
     ######## UTILITIES ##########
@@ -227,51 +245,92 @@ class StockBoy() :
             #    item_discount = sales_total*discount_percent`
             pass
 
-    def DateFormController(self, formvalue) :
-        start, end = DateFormHanlder(formvalue)
-        #end = end.replace(hour=0, minute=01)
-        #start = start.replace(hour=23, minute=59)
+    def DateFormController(self) :
+        if 'dateformvalue' in session :
+            start, end = DateFormHandler(session['dateformvalue'])
+        else :
+            start, end = DateFormHandler(default_range)
+
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
-        delta_range = (end - start).days
+        processed = False
 
-        self.DateDictBuilder(start, end)
+        if 'start_date' and 'end_date' in session:
+            if start_date == session['start_date']:
+                if end_date == session['end_date']:
+                    processed = True
 
-        session['orders_cache'] = False
+        if not processed or 'date_dict' not in session:
 
-        if session.get('orders_timeout') :
-            if now - session['orders_timeout'] < timedelta(hours=1):
-                if start == session.get('start') and end == session.get('end'):
-                    session['orders_cache'] = True
-
-        if not session.get('orders_cache'):
-            session['formavlue'] = formvalue
             session['start'] = start
             session['end'] = end
             session['start_date'] = start_date
             session['end_date'] = end_date
-            session['delta_range'] = delta_range+1
-
+            session['delta_range'] = (end - start).days+1
             session['orders_timeout'] = now
+
+            ## Run the date builder
+            self.DateDictBuilder(start, end)
+
+
+        session['processed'] = processed
 
     def ExpireCache(self, timer):
         ## Simple helper to set the timeout
         session[timer] = now - timedelta(days=100)
 
-
     def IsExpired(self, timer) :
         ## If you wanted to adjust cache duration,
         ## you would do it here
         if session.get(timer) :
-            if now - session['init_timeout'] < timedelta(hours=1):
-                cached = True
-                #flash('Init cached')
+            if now - session[timer] < timedelta(hours=1):
+                expired = False
+                #flash(timer+ ' Checked, Still Cached')
             else :
-                cached = False
-        else :
-            cached = False
+                flash(timer+' Checked, Expired')
+                expired = True
 
-        return cached
+        else :
+            flash(timer+' Checked, Does not exist')
+            expired = True
+
+        return expired
+
+    def AMZLocationBuilder(self):
+        address_list = []
+        for location in fba_locations.values() :
+            address=location['address'].upper()
+            address = AddressEndingStrip(address)
+            #zip = location['zip']
+            state = location['state']
+            address_list.append(address)
+
+        session['address_list'] = address_list
+
+    def OrderCacheAndCursor(self):
+        ##########################
+        # Typical Report Action is to cycle order
+        # Check the Order Timeout Cache & Process'd
+        # Determine if report needs to be rebuilt
+
+        if self.IsExpired('orders_timeout') or not session['processed']:
+            #flash('Session cached')
+            cursor = mongo.db.orders.find(
+            {'$and':[
+                {'orderDate':
+                    {'$lte': session['end'],
+                    '$gte':session['start']}
+                },
+                {'owner':session['email']}
+            ]}
+            )
+
+            self.ReportDictBuilder(cursor)
+            #flash('Orders Built')
+
+        else:
+            pass
+            #flash ('Orders Cached')
 
 
     ##############################
@@ -308,6 +367,8 @@ class StockBoy() :
     def AliasDictBuilder(self):
         ## Alias Dictionary can be built based on context
         ## For example, a single sku or all Owner Alias, etc
+        session['alias_timeout'] = now
+
         alias_search = mongo.db.alias.find({'Owner':session['email']})
 
         alias_dict = {}
@@ -329,11 +390,11 @@ class StockBoy() :
         ### Define a number of outputs that come from iterating through orders
         ### Create all possible dictionaries / outputs at once with a single loop of orders
         ### Cache this and encourage user to set a default range to maximize speed to delivery
+        session['orders_timeout'] = now
 
         if 'target_sku' in self.results.keys() :
             target_sku = self.results['target_sku']
             ## Don't cache individual items
-            session['orders_cache'] = False
 
             self.ExpireCache('orders_timeout')
 
@@ -349,11 +410,13 @@ class StockBoy() :
         customer_sales_dict = {}
         ordered_together_dict = {}
         orders_dict = {}
+        sales_rank= {}
+        qty_rank = {}
 
         #channel_sales_dict = {}
 
         ##### BY DAY DICTS ######
-        by_day_dict = copy.deepcopy(self.results['date_dict']) ## This does not need to be passed to the session
+        by_day_dict = copy.deepcopy(session['date_dict']) ## This does not need to be passed to the session
         #channel_sales_dict = copy.deepcopy(self.results['date_dict'])
 
         for year in by_day_dict.values() :
@@ -539,6 +602,8 @@ class StockBoy() :
                     ssd['daily_cost'] = float(ssd['cogs'])/float(delta_range)
                     ssd['order_list'].append(order_id)
 
+                    sales_rank[item_sku] += price*qty
+                    qty_rank[item_sku] += qty
 
                     if item_sku in inventory_dict :
                         ssd['stock'] = inventory_dict[item_sku]['Available']
@@ -592,6 +657,9 @@ class StockBoy() :
                         amz_qty = 0
                         amz_cogs = 0
                         amz_gross = 0
+
+                    sales_rank[item_sku]=price*qty
+                    qty_rank[item_sku]=qty
 
                     sku_sales_dict[item_sku] = {
                     'sku': item_sku,
@@ -711,14 +779,16 @@ class StockBoy() :
                 'email': email
                 }
 
+        ########################
+        #### ROLLUP RESULTS ####
+        ########################
 
-        #### STORE RESULTS ####
         # By ID results
         session['category_sales_dict'] = category_sales_dict
         session['store_sales_dict'] = store_sales_dict
         session['sku_sales_dict'] = sku_sales_dict
         session['customer_sales_dict'] = customer_sales_dict
-
+        #session['sorted_sku_sales'] = sorted(sku_sales_dict.items(), key=lambda kv: kv['sales'])
         # By Day results
         #self.results['sales_by_day_dict'] = sales_by_day_dict
         #self.results['qty_by_day_dict'] = qty_by_day_dict
@@ -739,12 +809,21 @@ class StockBoy() :
             burn_rates.append(sku_sales_dict[sku]['burn'])
 
         if len(burn_rates) > 0:
-            avg_burn = (sum(burn_rates)/len(burn_rates))*delta_range
+            avg_burn = (sum(burn_rates)/len(burn_rates)) * session['delta_range']
             avg_burn = round(avg_burn,2)
         else :
             avg_burn = 0
 
         qty_per_day = total_qty/delta_range
+
+
+
+        ### Sort Sales & QTY Rank Dictionaries
+        ### This converts them into a list of tupples
+        ### We can iterate through these in order with Jinja to get rank.
+        ### Pull SKU details, candidate for primary loop iter
+        session['sales_rank'] = sorted(sales_rank.items(), key=lambda kv: kv[1], reverse=True)
+        session['qty_rank'] = sorted(qty_rank.items(), key=lambda kv: kv[1], reverse=True)
 
 
         session['top_bar'] = {
@@ -755,6 +834,7 @@ class StockBoy() :
             'total_cancelled': total_cancelled,
             'shipped_to_amz':shipped_to_amz,
             'avg_burn':  avg_burn,
+            'items_per_order': total_qty/total_orders,
             'cost_per_day': total_cogs / delta_range,
             'qty_per_day': qty_per_day,
             'discounts': total_discounts,
@@ -762,8 +842,12 @@ class StockBoy() :
             'gross_sales': total_sales+total_shipping,
             'total_inventory': total_inventory,
             'total_stock_value': total_stock_value,
-            'total_orders': total_orders
+            'total_orders': total_orders,
+            'total_skus_sold': len(sku_sales_dict.keys()),
+            'total_categories_sold': len(category_sales_dict.keys())
+
             }
+
 
     def OrderedTogether(self, sku):
         ordered_together_dict = session['ordered_together_dict']
@@ -812,7 +896,7 @@ class StockBoy() :
                 m_keys.append(str(month)+"-"+str(year))
 
 
-        self.results['date_dict'] = date_dict
+        session['date_dict'] = date_dict
         session['date_range_labels'] = labels
 
     def ChartValueBuilder(date_dict):
@@ -876,6 +960,8 @@ class StockBoy() :
         session['sku_category_dict'] = sku_category_dict
 
     def SSInventoryBuilder(self) :
+        session['inventory_timeout'] = now
+
         cursor = mongo.db.inventory.find({'Owner':session['email']})
         inventory_dict = {}
 
@@ -921,14 +1007,10 @@ class StockBoy() :
 
     #Amz Address List Here
     def FBADictBuilder(self) :
+        session['fba_timeout'] = now
+
         #build address list
-        address_list = []
-        for location in fba_locations.values() :
-            address=location['address'].upper()
-            address = AddressEndingStrip(address)
-            #zip = location['zip']
-            state = location['state']
-            address_list.append(address)
+
 
         ## BUILD FBA INVENTORY FROM MWS COLLECTION
         cursor = mongo.db.mws.find({'Owner':session['email']})
@@ -979,7 +1061,7 @@ class StockBoy() :
         'stock_value': stock_value
         }
 
-        session['address_list'] = address_list
+
         session['fba_dict'] = fba_dict
 
     ## Additional Datatypes
@@ -1012,15 +1094,19 @@ class StockBoy() :
         session['supplier_dict'] = supplier_dict
 
         session['top_bar']['supplier_count'] = count
-        session['top_bar']['supplier_average_cost'] = average_cost / count
-        session['top_bar']['supplier_average_first_cost'] =  average_first_cost / count
-        session['top_bar']['supplier_average_lead_time'] = average_lead_time / count
+        if count > 0:
+            session['top_bar']['supplier_average_cost'] = average_cost / count
+            session['top_bar']['supplier_average_first_cost'] =  average_first_cost / count
+            session['top_bar']['supplier_average_lead_time'] = average_lead_time / count
 
 
     def CustomerDictBuilder(self):
         pass
 
     def ShipmentDictBuilder(start, end) :
+
+        session['shipment_timeout'] = now
+
 
         cursor = mongo.db.shipments.find({'$and':[
         {'createDate':{'$lte': end, '$gte':start}},
@@ -1317,26 +1403,26 @@ class DashboardView(AdminIndexView):
     @expose('/', methods=('GET', 'POST'))
     @login_required
     def index(self):
-        formvalue = default_range
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+            session['dateformvalue'] = request.form.get('daterange')
 
         sb = StockBoy()
-        sb.DateFormController(formvalue)
 
-        #if sb.IsExpired('orders_timeout'):
-            #flash('Session cached')
-        cursor = mongo.db.orders.find(
-        {'$and':[
-            {'orderDate':
-                {'$lte': session['end'],
-                '$gte':session['start']}
-            },
-            {'owner':session['email']}
-        ]}
-        )
+        sb.DateFormController()
 
-        sb.ReportDictBuilder(cursor)
+        if sb.IsExpired('orders_timeout') or not session['processed']:
+            #flash('Report Dict Not Cached (Or Not Processed)')
+            cursor = mongo.db.orders.find(
+            {'$and':[
+                {'orderDate':
+                    {'$lte': session['end'],
+                    '$gte':session['start']}
+                },
+                {'owner':session['email']}
+            ]}
+            )
+
+            sb.ReportDictBuilder(cursor)
         #flash('Orders Built')
 
         sku_sales_sort = []
@@ -1461,18 +1547,42 @@ class ProfileView(BaseView):
 
         return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform, fbaform=fbaform)
 
+class SettingsView(BaseView):
+    @expose('/', methods=('GET','POST'))
+    @login_required
+    def SettingsIndex(self):
+        sb = StockBoy()
+
+        return self.render('admin/settings.html')
+
+    @expose('/billing/', methods=('GET','POST'))
+    @login_required
+    def BillingView(self):
+
+        sb = StockBoy()
+        charges= stripe.Charge.list()
+
+        sb.ExpireCache('init_timeout')
+        sb.ExpireCache('alias_timeout')
+        sb.ExpireCache('orders_timeout')
+        sb.ExpireCache('inventory_timeout')
+        sb.ExpireCache('fba_timeout')
+
+        return self.render('admin/billing.html', charges=charges)
+
 class SalesView(BaseView):
     @expose('/', methods=('GET', 'POST'))
     @login_required
     def SalesIndex(self):
-        formvalue = default_range
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+            session['dateformvalue'] = request.form.get('daterange')
 
         sb = StockBoy()
-        sb.DateFormController(formvalue)
+        sb.DateFormController()
 
-        if sb.IsExpired('orders_cache') :
+
+
+        if sb.IsExpired('orders_timeout') or not session['processed']:
             #flash('Session cached')
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -1497,62 +1607,52 @@ class SalesView(BaseView):
     @expose('/channels/', methods=('GET', 'POST'))
     @login_required
     def Channels(self):
-
-        #Iter through orders
-        #Collect sales into date dict under store ID
-        # No item chart
-        formvalue = 45
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+            session['dateformvalue'] = request.form.get('daterange')
 
         sb = StockBoy()
-        sb.DateFormController(formvalue)
+        sb.DateFormController()
 
-        if session.get('cached') == True :
+        if sb.IsExpired('orders_timeout') or not session['processed']:
             #flash('Session cached')
 
-            return self.render('admin/sales_channels.html')
 
+            cursor = mongo.db.orders.find(
+            {'$and':[
+                {'orderDate':
+                    {'$lte': session['end'],
+                    '$gte':session['start']}
+                },
+                {'owner':session['email']}
+            ]}
+            )
 
-        cursor = mongo.db.orders.find(
-        {'$and':[
-            {'orderDate':
-                {'$lte': session['end'],
-                '$gte':session['start']}
-            },
-            {'owner':session['email']}
-        ]}
-        )
-
-        sb.ReportDictBuilder(cursor)
+            sb.ReportDictBuilder(cursor)
 
         return self.render('admin/sales_channels.html')
 
     @expose('/<int:store>',methods=('GET', 'POST'))
     @login_required
     def Channel(self, store):
-        ## Date Handling
-        formvalue = False
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
-        #{'created':{'$lt':datetime.datetime.now(), '$gt':datetime.datetime.now() - timedelta(days=10)}}
-        #return str(mdb)
+            session['dateformvalue'] = request.form.get('daterange')
 
         sb = StockBoy()
-        sb.DateFormController(formvalue)
+        sb.DateFormController()
+        if sb.IsExpired('orders_timeout') or not session['processed']:
 
-        cursor = mongo.db.orders.find(
-        {'$and':[
-            {'createDate':
-                {'$lte': sb.results['end'],
-                '$gte':sb.results['start']}
-            },
-            {'owner':sb.results['email']},
-            {'advancedOptions.storeId':store}
-        ]}
-        )
+            cursor = mongo.db.orders.find(
+            {'$and':[
+                {'createDate':
+                    {'$lte': session['end'],
+                    '$gte':session['start']}
+                },
+                {'owner':session['email']},
+                {'advancedOptions.storeId':store}
+            ]}
+            )
 
-        sb.ReportDictBuilder(cursor)
+            sb.ReportDictBuilder(cursor)
 
 
 
@@ -1563,13 +1663,13 @@ class SalesView(BaseView):
     @expose('/cogs/', methods=('GET', 'POST'))
     @login_required
     def COGS(self):
-        formvalue = default_range
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
-        sb = StockBoy()
-        sb.DateFormController(formvalue)
+            session['dateformvalue'] = request.form.get('daterange')
 
-        if session.get('orders_cache') == False :
+        sb = StockBoy()
+        sb.DateFormController()
+
+        if sb.IsExpired('orders_timeout') or not session['processed']:
             #flash('Session cached')
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -1583,10 +1683,6 @@ class SalesView(BaseView):
 
             sb.ReportDictBuilder(cursor)
             #flash('Orders Built')
-
-        else:
-            pass
-            #flash ('Orders Cached')
 
 
         return self.render('admin/sales_cogs.html')
@@ -1594,14 +1690,14 @@ class SalesView(BaseView):
     @expose('/orders/', methods=('GET', 'POST'))
     @login_required
     def Orders(self):
-        formvalue = default_range
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+            session['dateformvalue'] = request.form.get('daterange')
+
         sb = StockBoy()
 
-        sb.DateFormController(formvalue)
+        sb.DateFormController()
 
-        if sb.IsExpired('orders_cache') :
+        if sb.IsExpired('orders_timeout') or not session['processed']:
             #flash('Session cached')
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -1614,11 +1710,8 @@ class SalesView(BaseView):
             )
 
             sb.ReportDictBuilder(cursor)
-            #flash('Orders Built')
 
-        else:
-            pass
-            #flash ('Orders Cached')
+            #flash('Orders Built')
 
         return self.render('admin/sales_orders.html')
 
@@ -1627,8 +1720,6 @@ class SalesView(BaseView):
     def OrderById(self, orderId):
 
         sb = StockBoy()
-        formvalue = default_range
-        sb.DateFormController(formvalue)
 
         if str(orderId) not in 'orders_dict'  :
             #flash('Session cached')
@@ -1641,7 +1732,8 @@ class SalesView(BaseView):
 
             sb.ReportDictBuilder(cursor)
             #flash('Orders Built')
-            sb.ExpireCache('orders_cache')
+            ## Expire the cache, because this is an a-typical call
+            sb.ExpireCache('orders_timeout')
         else:
             pass
             #flash ('Orders Cached')
@@ -1654,25 +1746,25 @@ class InventoryView(BaseView):
     def index(self):
 
         sb = StockBoy()
-        formvalue = default_range ## Placeholder for user custom setting
         costform = InventoryCostForm(prefix='costform')
+        session['dateformvalue'] = default_range
 
-        if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+        if costform.validate_on_submit():
+            #mongo.mongo_user.update({'email':user['email']},{"$set":{'ss_lastupdated':now}},upsert=True)
+            if costform.cost.data != 0.00 :
+                mongo.db.inventory.update({'SKU':costform.sku.data},{"$set":{'SB Cost':float(costform.cost.data)}})
 
-            if costform.validate_on_submit():
-                #mongo.mongo_user.update({'email':user['email']},{"$set":{'ss_lastupdated':now}},upsert=True)
-                if costform.cost.data != 0.00 :
-                    mongo.db.inventory.update({'SKU':costform.sku.data},{"$set":{'SB Cost':float(costform.cost.data)}})
+                # Rebuild Inventory Dict before telling the user saved
+                sb.SSInventoryBuilder()
+                sb.ExpireCache('inventory_timeout')
+                sb.ExpireCache('orders_timeout')
+                sb.ExpireCache('fba_timeout')
 
-                    # Rebuild Inventory Dict before telling the user saved
-                    sb.SSInventoryBuilder()
-                    sb.ExpireCache('orders_cache')
-                    return jsonify(data={'message': 'Cost is {}'.format(costform.cost.data)})
 
-        sb.DateFormController(formvalue)
+                return jsonify(data={'message': 'Cost is {}'.format(costform.cost.data)})
 
-        if not sb.IsExpired('orders_cache'):
+
+        if sb.IsExpired('orders_timeout') or not session['processed']:
 
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -1736,7 +1828,7 @@ class InventoryView(BaseView):
             row['sold'] = sold
 
             if sold > 1 :
-                burn = float(float(sold)/float(formvalue))
+                burn = float(float(sold)/float(default_range))
                 days = (stock+fba)/burn
 
             else :
@@ -1817,72 +1909,25 @@ class InventoryView(BaseView):
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
     @login_required
-    #def is_visible(self):
-        #return False
     def ProductIndex(self) :
-        formvalue = False
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+            session['dateformvalue'] = request.form.get('daterange')
+        else:
+            dateformvalue = default_range
 
-        start, end = DateFormHanlder(formvalue)
-        start_date = start.strftime('%m/%d/%Y')
-        end_date = end.strftime('%m/%d/%Y')
-        delta_range = (end - start).days
-        date_dict, labels = DateDictBuilder(start, end)
+        sb = StockBoy()
+        sb.DateFormController()
+        sb.OrderCacheAndCursor()
 
-        email = session['email']
-        ### Queries ###
 
-        #Build Alias Dictionary - all owner alias values
-        alias_search = mongo.db.alias.find({'Owner':email})
-        alias_dict = AliasDictBuilder(alias_search)
-
-        ## Find Owner Orders in Date Range
-        range_search = mongo.db.orders.find({'$and':[
-        {'orderDate':{'$lte': end, '$gte':start}},
-        {'owner':email}]})
-
-        item_sku = 'All'
-        item_chart, values, shipped_to_amz = ItemChartBuilder(range_search, date_dict, alias_dict, item_sku)
-
-        top_bar = []
-        sales_total = 0
-        qty_total = 0
-        # Build top bar values
-
-        ## We do not want values per day, we want value per item, graphed
-        sales_values = []
-        qty_values = []
-        labels = []
-        item_chart = sorted(item_chart, key=lambda x: x[2], reverse=True)
-
-        for row in item_chart :
-            sales_total += row[2]
-            if row[2] < 0:
-                continue
-            labels.append(row[1])
-            qty_total += row[3]
-            sales_values.append(row[2])
-            qty_values.append(row[3])
-
-        range_search.rewind()
-        num_orders = range_search.count()
-        avg_order_size = float(qty_total/num_orders)
-
-        #### Placeholder for 2 chart handling
-        values = sales_values
-        ####
-
-        top_bar.append(sales_total)
-        top_bar.append(qty_total)
-        top_bar.append(num_orders)
-        top_bar.append(float(qty_total)/float(num_orders))
-        max_values = max(sales_values)
-        return self.render('admin/product_index.html',  top=top_bar,orders=item_chart, max=max_values, labels=labels, values=values, daterange=formvalue, startdate= start_date, enddate=end_date)
+        return self.render('admin/product_index.html')
 
     @expose('/<string:target_sku>',methods=('GET', 'POST'))
     def Product(self, target_sku):
-        formvalue = default_range
+        if request.method == 'POST':
+            session['dateformvalue'] = request.form.get('daterange')
+        else:
+            formvalue = session['dateformvalue']
 
         sb = StockBoy()
         sb.results['target_sku'] = target_sku
@@ -1900,7 +1945,7 @@ class ProductView(BaseView):
 
         ## Use this as an instance variable, pass via class
 
-        sb.DateFormController(formvalue)
+        sb.DateFormController()
 
         cursor = mongo.db.orders.find(
         {'$and':[
@@ -2007,7 +2052,7 @@ class FBAView(BaseView):
         sb = StockBoy()
 
         ## Calculate Turn every X days (future user setting)
-        formvalue = default_range
+        session['dateformvalue'] = False
         ## Target FBA days of inventory (future user setting)
         fba_target = 30
         ## Target Re-send frequency (future user setting)
@@ -2015,12 +2060,12 @@ class FBAView(BaseView):
         ## Minimum inventory count
         fba_minimum = 6
 
-        sb.DateFormController(formvalue)
+        sb.DateFormController()
         #temporarily resolve transfer to session from results
         #session['delta_range'] = sb.results['delta_range']
 
 
-        if session.get('orders_cache') == False :
+        if sb.IsExpired('orders_timeout') or not session['processed']:
             #flash('Session cached')
 
             cursor = mongo.db.orders.find(
@@ -2085,10 +2130,10 @@ class FBAView(BaseView):
                         days = 0
 
                     else :
-                        days = float(supply) / (float(amz_qty)/float(formvalue))
+                        days = float(supply) / (float(amz_qty)/float(default_range))
 
                     total_target = fba_target + fba_resend
-                    ratio = float(total_target) / float(formvalue)
+                    ratio = float(total_target) / float(default_range)
 
                     recommended = int(ratio * amz_qty) - supply
 
@@ -2141,21 +2186,14 @@ class CustomerView(BaseView) :
     @expose('/',methods=('GET', 'POST'))
     @login_required
     def CustomerIndex(self) :
-        formvalue = False
-        if request.method == 'POST':
-            formvalue = request.form.get('daterange')
 
-        ## Date range builder
-        start, end = DateFormHanlder(formvalue)
-        start_date = start.strftime('%m/%d/%Y')
-        end_date = end.strftime('%m/%d/%Y')
-        delta_range = (end - start).days
+        session['dateformvalue'] = default_range
+        #DateForm()
 
-        email = session['email']
         order_value_list = []
         #Query - get orders for current users in date range
         range_search = mongo.db.orders.find({'$and':[
-        {'orderDate':{'$lte': end, '$gte':start}},
+        {'orderDate':{'$lte': session['end'], '$gte':session['start']}},
         {'owner':session['email']} ]})
         num_orders = range_search.count()
 
@@ -2168,12 +2206,13 @@ class CustomerView(BaseView) :
                 customer_id = None
 
             if customer_id is None :
+                continue
                 # Amazon orders do not have a customer ID
                 # [DONE] Create identifyable hash of the Street Address + Zip code
                 # Create a customer ID with 'AMZ' prefix
                 # Update MongoDB with both values
                 address = order['shipTo']['street1']+'::'+order['shipTo']['postalCode']
-                customer_id = base64.urlsafe_b64encode(hashlib.md5(address.encode('utf8')).digest())
+                #customer_id = base64.urlsafe_b64encode(hashlib.md5(address.encode('utf8')).digest())
                 customer_id=customer_id.decode('ascii')
 
                 #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id})
@@ -2272,7 +2311,7 @@ class ShipmentView(BaseView):
     #def is_visible(self):
         #return False
     def index(self):
-        formvalue = False
+        formvalue = session['dateformvalue']
         if request.method == 'POST':
             formvalue = request.form.get('daterange')
 
@@ -2374,7 +2413,6 @@ class ShipmentView(BaseView):
                     values.append(day)
 
 
-
         top_bar = []
         top_bar.append(shipment_count)
 
@@ -2474,7 +2512,10 @@ admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_ty
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
 admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
-admin.add_view(ProfileView(name='Settings & Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
+admin.add_view(ProfileView(name='Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
+admin.add_view(SettingsView(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
+admin.add_view(SettingsView(name='Billing', endpoint='settings/billing', menu_icon_type='fa', menu_icon_value='fa-cog'))
+
 #admin.add_sub_view(SupplierView())
 
 #admin.add_view(InventoryEditor(name='Inventory Editor', endpoint='inventory-editor', menu_icon_type='fa', menu_icon_value='fa-cog'))
@@ -2500,4 +2541,4 @@ if __name__ == '__main__':
 
 
     # Start app
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
