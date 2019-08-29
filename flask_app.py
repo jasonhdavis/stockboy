@@ -78,11 +78,6 @@ today = datetime(now.year, now.month, now.day, 23,59,59)
 
 #stripe.api_key = app.config['STRIPE_PRIV']
 
-email = current_user.email #'lazyluckyfree@gmail.com'#
-### Development Email Address
-#session['email'] = 'matt@charlieandwobbs.com'
-session['email'] = email
-
 ##########
 ### PLACEHOLDER VARIABLES FOR USER SETTINGS
 ########
@@ -153,7 +148,7 @@ def CheckUserFeatures(sb_auth):
         ###################################################
         ### Redirect Users Who Have Not Finished Setup ###
         ###################################################
-        user_details = mongo.db.mongo_user.find_one({'email':session['email']})
+        user_details = mongo.db.mongo_user.find_one({'email':current_user.email})
 
         #user_features = results['user_features']
         #flash(user_features)
@@ -183,6 +178,12 @@ class StockBoy() :
         #flash(user_details)
 
         self.results={}
+
+        email = current_user.email #'lazyluckyfree@gmail.com'#
+        ### Development Email Address
+        #session['email'] = 'matt@charlieandwobbs.com'
+        session['email'] = email
+
         #flash(user_features)
 
         ### Logic for Billing, Trial & Cancellation Goes here
