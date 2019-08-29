@@ -9,7 +9,7 @@ import copy
 import pytz
 import json
 import re
-
+from functools import wraps
 from operator import itemgetter
 from datetime import datetime, timedelta
 import locale
@@ -72,6 +72,8 @@ login_manager.login_view = 'login'
 #scheduler = BackgroundScheduler()
 #atexit.register(lambda: scheduler.shutdown())
 now = datetime.now()
+nice_now = datetime.strftime(now,"%m-%d-%Y at %I:%M %p")
+
 today = datetime(now.year, now.month, now.day, 23,59,59)
 
 stripe.api_key = app.config['STRIPE_PRIV']
@@ -88,6 +90,8 @@ inventory_target = 90 #Buffer amount
 fba_target = 45
 fba_resend = 15
 fba_minimum = 6
+results = {}
+
 #restock_alert_frequency= ['Never','Daily','Weekly','Monthly']
 #timezone = 'EDT'
 #calculate_discount = True
@@ -138,16 +142,48 @@ def AddressEndingStrip (address) :
 
     return list(set(address) - set(strip_list))
 
+def CheckUserFeatures(sb_auth):
+    @wraps(sb_auth)
+    def decorated_function(*args, **kwargs):
+        ###################################################
+        ### Redirect Users Who Have Not Finished Setup ###
+        ###################################################
+        user_details = mongo.db.mongo_user.find_one({'email':session['email']})
+
+        #user_features = results['user_features']
+        #flash(user_features)
+        if 'ss_key' and 'ss_secret' not in user_details :
+            return redirect(url_for('settings.SetupView'))
+
+        if 'alias_updated' not in user_details:
+            return redirect(url_for('settings.StepTwoView'))
+            #return
+
+        if 'inventory_updated' not in user_details:
+            return redirect('settings.StepThreeView')
+
+        return sb_auth(*args, **kwargs)
+    return decorated_function
+
+######
+### GLOBALS
+####
 
 class StockBoy() :
 
     def __init__(self):
         email = current_user.email #'lazyluckyfree@gmail.com'#
-        self.results= {}
         ### Development Email Address
-        #session['email'] = 'lazyluckyfree@gmail.com'
+        #session['email'] = 'matt@charlieandwobbs.com'
         session['email']=email
+        #self.results = {}
+        ### User Feature & Setup Check ###
+        #flash(user_details)
 
+        self.results={}
+        #flash(user_features)
+
+        ### Logic for Billing, Trial & Cancellation Goes here
         #session['cached'] = True
         #flash('Stockboy Initiated')
 
@@ -175,7 +211,6 @@ class StockBoy() :
         if self.IsExpired('fba_timeout'):
             self.FBADictBuilder()
             session['fba_timeout'] = now
-
 
 
     #############################
@@ -287,11 +322,11 @@ class StockBoy() :
                 expired = False
                 #flash(timer+ ' Checked, Still Cached')
             else :
-                flash(timer+' Checked, Expired')
+                #flash(timer+' Checked, Expired')
                 expired = True
 
         else :
-            flash(timer+' Checked, Does not exist')
+            #flash(timer+' Checked, Does not exist')
             expired = True
 
         return expired
@@ -313,6 +348,7 @@ class StockBoy() :
         # Check the Order Timeout Cache & Process'd
         # Determine if report needs to be rebuilt
 
+
         if self.IsExpired('orders_timeout') or not session['processed']:
             #flash('Session cached')
             cursor = mongo.db.orders.find(
@@ -326,12 +362,12 @@ class StockBoy() :
             )
 
             self.ReportDictBuilder(cursor)
+
             #flash('Orders Built')
 
         else:
             pass
             #flash ('Orders Cached')
-
 
     ##############################
     ###### INIT BUILDERS #########
@@ -460,6 +496,7 @@ class StockBoy() :
         inventory_dict = session['inventory_dict']
         fba_dict = session['fba_dict']
 
+        repeat_customers = []
 
         ## Sku
         #### Name
@@ -477,6 +514,7 @@ class StockBoy() :
             ## Perhaps the above is a better way to do this
             store_id = order['advancedOptions']['storeId']
             customer_id = order['customerId']
+
             warehouse_id = order['advancedOptions']['warehouseId']
             create_date = order['createDate']
             timezone = pytz.timezone("America/Los_Angeles")
@@ -484,6 +522,7 @@ class StockBoy() :
             order_date = order['orderDate']
             order_date = timezone.localize(order_date)
             order_id = order['orderId']
+            order_number = order['orderNumber']
             order_status = order['orderStatus']
 
             if order_status == 'cancelled':
@@ -494,6 +533,7 @@ class StockBoy() :
             order_qty = 0
             order_cogs = 0
             order_gross = 0
+
             shipping_amt = order['shippingAmount']
             street1 = order['shipTo']['street1']
             customer_name = order['shipTo']['name']
@@ -519,9 +559,14 @@ class StockBoy() :
 
             for item in order['items'] :
 
-                item_sku = self.SKUFlatten(item['sku'])
+                if item['sku'] == '':
+                    item_sku = item['orderItemId']
+                else :
+                    item_sku = self.SKUFlatten(item['sku'])
+
                 item['flat_sku'] = item_sku
                 ordered_together.append(item_sku)
+
                 if target_sku != 'All' and target_sku != item_sku:
                     ## Ineffecient method of searching for orders matching target sku
                     ## Likely a more clever mongodb call should handle the product sku page
@@ -636,6 +681,7 @@ class StockBoy() :
                         'cogs': cogs,
                         #'orders': 1,
                         'gross': gross,
+
                         }
 
 
@@ -762,15 +808,24 @@ class StockBoy() :
             #### CUSTOMER SALES DETAILS ######
             if customer_id in customer_sales_dict :
                 ## Customer ID coorilates with customer email
-                customer_sales_dict[customerId]['sales'] += calculated_total
-                customer_sales_dict[customerId]['qty' ]+= order_qty
+                customer_sales_dict[customer_id]['sales'] += calculated_total
+                customer_sales_dict[customer_id]['qty' ]+= order_qty
+                customer_sales_dict[customer_id]['discounts' ]+= discounts
+                customer_sales_dict[customer_id]['shipping' ]+= shipping_amt
+                customer_sales_dict[customer_id]['orders' ]+= 1
+
+                if not customer_id in repeat_customers:
+                    repeat_customers.append(customer_id)
 
 
-            elif customer_id in vars() :
-                customer_sales_dict[customerId]={
-                'name': name,
+            elif customer_id  :
+                customer_sales_dict[customer_id]={
+                'customer_id':customer_id,
+                'name': order['billTo']['name'],
+                'company': order['shipTo']['company'],
                 'sales': calculated_total,
                 'qty': order_qty,
+                'orders': 1,
                 'shipping': shipping_amt,
                 'discounts': discounts,
                 'street1': street1,
@@ -778,6 +833,12 @@ class StockBoy() :
                 'state': state,
                 'email': email
                 }
+
+
+
+
+
+
 
         ########################
         #### ROLLUP RESULTS ####
@@ -816,7 +877,12 @@ class StockBoy() :
 
         qty_per_day = total_qty/delta_range
 
-
+        if total_orders > 0:
+            items_per_order = total_qty/total_orders
+            average_order_value = total_sales/total_orders
+        else :
+            items_per_order = 0
+            average_order_value = 0
 
         ### Sort Sales & QTY Rank Dictionaries
         ### This converts them into a list of tupples
@@ -834,7 +900,8 @@ class StockBoy() :
             'total_cancelled': total_cancelled,
             'shipped_to_amz':shipped_to_amz,
             'avg_burn':  avg_burn,
-            'items_per_order': total_qty/total_orders,
+            'avg_order_value': average_order_value,
+            'items_per_order': items_per_order,
             'cost_per_day': total_cogs / delta_range,
             'qty_per_day': qty_per_day,
             'discounts': total_discounts,
@@ -844,10 +911,12 @@ class StockBoy() :
             'total_stock_value': total_stock_value,
             'total_orders': total_orders,
             'total_skus_sold': len(sku_sales_dict.keys()),
-            'total_categories_sold': len(category_sales_dict.keys())
+            'total_categories_sold': len(category_sales_dict.keys()),
+            'unique_customers': len(customer_sales_dict.keys()),
+            'repeat_customers': len(repeat_customers)
+
 
             }
-
 
     def OrderedTogether(self, sku):
         ordered_together_dict = session['ordered_together_dict']
@@ -863,6 +932,93 @@ class StockBoy() :
                             ordered_with[product] = 1
 
         session['ordered_with'] = ordered_with
+
+    def InventoryResultsBuilder(self):
+
+        ssd = session['sku_sales_dict']
+        fbad = session['fba_dict']
+        pd = session['product_dict']
+
+        total_sold = 0
+        total_inventory = 0
+        total_value = 0
+        total_skus = 0
+
+        ## Final Results go here
+        inventory_results_dict = {}
+
+        for item in session['inventory_dict'].values() :
+            if 'SKU' not in item :
+                continue
+            sku = item['SKU']
+            inventory_results_dict[sku] = {}
+            row = inventory_results_dict[sku]
+            row['SKU'] = sku
+            row['name'] = pd[sku]['name']
+            if sku in ssd :
+                row['img'] = ssd[sku]['img']
+            else :
+                row['img'] = '#'
+            stock = item['Stock']
+            row['stock'] = stock
+            if sku in fbad :
+                if 'InStockSupplyQty' in fbad[sku]:
+                    fba = fbad[sku]['InStockSupplyQty']
+                else :
+                    fba = fbad[sku]['TotalSupplyQty']
+            else :
+                fba = 0
+            row['fba'] = fba
+            ## Add Cost Logic (funciton call) Here
+            if 'SB Cost' in item:
+                row['cost'] = item['SB Cost']
+            else:
+                row['cost'] = item['Last Cost']
+
+            if sku in ssd :
+                sold = ssd[sku]['qty']
+            else :
+                sold = 0
+            row['sold'] = sold
+
+            if sold > 1 :
+                burn = float(float(sold)/float(default_range))
+                days = (stock+fba)/burn
+
+            else :
+                days = 9999
+            row['days'] = days
+
+
+            total_inventory += stock+fba
+            total_sold += sold
+            total_value += row['cost']*(stock+fba)
+            total_skus += 1
+
+
+        #### THIS NEEDS TO BE PAGE SPECIFIC
+        #afd
+        #top_bar = session['top_bar']
+
+        ## Run some tests here to see if you get the same values
+
+        session['top_bar']['page_total_inventory'] = total_inventory
+        session['top_bar']['page_total_sold'] = total_sold
+        session['top_bar']['page_total_value'] = total_value
+        session['top_bar']['page_total_skus'] = total_skus
+
+        total_qty = session['top_bar']['total_qty']
+
+        if total_qty > 0:
+            total_days = total_inventory/(total_qty/session['delta_range'])
+        else :
+            total_days = 0
+            #flash('No inventory uploaded')
+
+        session['top_bar']['total_days'] = total_days
+        #session['top_bar'] = top_bar
+        session['inventory_results_dict'] = inventory_results_dict
+
 
     ##############################
     #### DICTIONARY BUILDERS #####
@@ -1103,34 +1259,48 @@ class StockBoy() :
     def CustomerDictBuilder(self):
         pass
 
-    def ShipmentDictBuilder(start, end) :
+    def ShipmentDictBuilder(self) :
 
         session['shipment_timeout'] = now
 
 
         cursor = mongo.db.shipments.find({'$and':[
-        {'createDate':{'$lte': end, '$gte':start}},
+        {'createDate':{'$lte': session['end'], '$gte':session['start']}},
         {'owner':session['email']}]})
 
         ship_dict = {}
-        for item in cursor :
-            shipment_id = item['shipmentId']
-
+        for shipment in cursor :
+            shipment_id = shipment['shipmentId']
             ship_dict[shipment_id] = {}
             sd = ship_dict[shipment_id]
-            sd['orderId'] = item['orderId']
-            sd['shipmentCost'] = item['shipmentCost']
-            sd['name'] = item['shipTo']['name']
-            sd['createDate'] = item['createDate']
-            sd['carrierCode'] = item['carrierCode']
-            sd['trackingNumber'] = item['trackingNumber']
-            sd['warehouseId'] = item['warehouseId']
-            sd['userId'] = item['userId']
+            for key in shipment.keys():
+                sd[key] = shipment[key]
 
+
+
+
+
+            #handle_time = shipment['createDate'] - shipment['orderDate']
+            # handle_time > 0 :
+            #days = handle_time.days
+            #seconds = handle_time.total_seconds()
+            #hours = seconds // 3600
+            #hours = hours - (days*24)
+            #minutes = (seconds % 3600) // 60
+            #seconds = seconds % 60
+            #sd['handle_time_string'] = '{} days, {} hours'.format(days, hours)
+
+            #row.append(handle_time_string)
+
+            #if 'actual_delivery_date' in ship_dict[shipment].keys() :
+            #    shipping_time = ship_dict[shipment]['actual_delivery_date'] - create_date
+            #    shipping_times.append(shipping_time)
+            #else :
+            #    shipping_time = 'NA'
 
         session['shippment_timeout'] = now
 
-        return ship_dict
+        session['ship_dict'] = ship_dict
 
 
 ##Depreciated with strip microseconds
@@ -1325,7 +1495,7 @@ class MongoRole(enginedb.Document, RoleMixin):
     description = enginedb.StringField(max_length=255)
 
 class MongoUser(enginedb.Document, UserMixin):
-    email = enginedb.StringField(max_length=255)
+    email = enginedb.EmailField()
     password = enginedb.StringField(max_length=255)
     active = enginedb.BooleanField(default=True)
     confirmed_at = enginedb.DateTimeField()
@@ -1333,14 +1503,15 @@ class MongoUser(enginedb.Document, UserMixin):
     ss_key = enginedb.StringField(max_length=255)
     ss_secret = enginedb.StringField(max_length=255)
     ss_lastupdated = enginedb.DateTimeField()
-    inventory_updated = enginedb.DateTimeField()
+    inventory_updated = enginedb.StringField()
     alias_updated = enginedb.DateTimeField()
     fba_updated = enginedb.DateTimeField()
     fba_merchant_id = enginedb.StringField(max_length=255)
     fba_access_key = enginedb.StringField(max_length=255)
     fba_secret_key = enginedb.StringField(max_length=255)
-
-
+    current_login_at = enginedb.DateTimeField()
+    current_login_ip = enginedb.StringField(max_length=255)
+    login_count = enginedb.IntField()
 # Setup Flask-Security
 #user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 #security = Security(app, user_datastore)
@@ -1395,6 +1566,90 @@ class SupplierSelect(FlaskForm):
     notes = TextAreaField()
 
 
+#########################
+### Form Contollers #####
+#########################
+
+
+def SSAPIForm(ss_api_form):
+        flash('ShipStation API Key Updated - Data will begin showing shortly')
+        userid = current_user.id
+        current = mongo.db.mongo_user.find_one({"_id": ObjectId(userid)})
+        current['ss_key'] = ss_api_form.key.data
+        current['ss_secret'] = ss_api_form.secret.data
+        mongo.db.mongo_user.update({"_id":ObjectId(userid)},{'$set':{'ss_key':ss_api_form.key.data, 'ss_secret':ss_api_form.secret.data}},upsert=True)
+        #current_user.ss_key = apiform.key.data
+        #current_user.ss_secret = apiform.secret.data
+
+def InventoryFormController(inventoryform):
+    f = inventoryform.file.data
+    filename = secure_filename(f.filename)
+    save_path = os.path.join(app.root_path,'uploads', filename)
+    f.save(save_path)
+    wb = xlrd.open_workbook(save_path)
+    ws = wb.sheet_by_index(0)
+    session['upload_status'] = False
+    if ws.cell_value(0,0) != 'Inventory Status Report' :
+        flash('File does not match expected Inventory Stock Report format')
+    else:
+        #mongo.db.inventory.remove({"Owner":email})
+        flash('File Accepted')
+        col_len = len(ws.col(0))
+        r = 8
+        update_count = 0
+        while r < col_len :
+            sku = str(ws.cell_value(r,1))
+            name = ws.cell_value(r,2).encode('utf8')
+            if sku == "":
+                #Shipstation merges name column vertically
+                # Leaving  blank sku cells below
+                r = r+1
+                continue
+            row = {}
+            row['SKU'] = sku
+            row['Product Name'] = name
+            row['Last Cost'] = ws.cell_value(r,3)
+            row['Avg Cost'] = ws.cell_value(r,4)
+            row['Stock'] = ws.cell_value(r,6)
+            row['Allocated'] = ws.cell_value(r,7)
+            row['Available'] = ws.cell_value(r,8)
+            row['Reorder Threshold'] = ws.cell_value(r,9)
+            row['Owner'] = session['email']
+            mongo.db.inventory.update({'SKU':str(sku)},{'$set': row},upsert=True)
+            r = r+1
+            update_count+=1
+        flash('Imported '+ str(update_count) + ' Inventory Stock Values')
+        mongo.db.mongo_user.update({'email':session['email']},{'$set':{'inventory_updated':nice_now}})
+        session['upload_status'] = True
+
+def AliasUploadController(aliasform):
+
+    f = aliasform.file.data
+    filename = secure_filename(f.filename)
+    save_path = os.path.join(app.root_path,'uploads', filename)
+    f.save(save_path)
+    wb = xlrd.open_workbook(save_path)
+    ws = wb.sheet_by_index(0)
+    col_len = len(ws.col(0))
+    r = 2
+    if ws.cell_value(0,2) != 'Store Name':
+        flash('Uploaded File does not match expected Alias Report Format')
+    else:
+        mongo.db.alias.remove({"Owner":session['email']})
+
+        while r < col_len :
+            row = {}
+            row['Product SKU'] = str(ws.cell_value(r,0))
+            row['Alias'] = str(ws.cell_value(r,1))
+            row['Store Name'] = str(ws.cell_value(r,2))
+            row['Store ID'] = str(ws.cell_value(r,3))
+            row['Owner'] = session['email']
+            mongo.db.alias.update({'Alias':str(ws.cell_value(r,1))},row,upsert=True)
+            r+=1
+        flash('Imported ' + str(col_len-2) + ' Alias Records')
+
+        mongo.db.mongo_user.update({'email':session['email']},{'$set':{'alias_updated':now}})
+
 ###############
 ### VIEWS #####
 ###############
@@ -1402,6 +1657,7 @@ class SupplierSelect(FlaskForm):
 class DashboardView(AdminIndexView):
     @expose('/', methods=('GET', 'POST'))
     @login_required
+    @CheckUserFeatures
     def index(self):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
@@ -1409,20 +1665,7 @@ class DashboardView(AdminIndexView):
         sb = StockBoy()
 
         sb.DateFormController()
-
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-            #flash('Report Dict Not Cached (Or Not Processed)')
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-
-            sb.ReportDictBuilder(cursor)
+        sb.OrderCacheAndCursor()
         #flash('Orders Built')
 
         sku_sales_sort = []
@@ -1444,93 +1687,20 @@ class ProfileView(BaseView):
     @login_required
     def UserProfile(self):
         sb = StockBoy()
-        apiform = SSAPI(prefix='apiform')
         fbaform = MWSAPI(prefix='fbaform')
         inventoryform = FileUploadForm(prefix='inventoryform')
         aliasform = FileUploadForm(prefix='aliasform')
-        nice_now = datetime.strftime(now,"%m-%d-%Y at %I:%M %p")
 
+        apiform = SSAPI(prefix='apiform')
         if request.method == 'POST' and apiform.submit.data:
-            flash('ShipStation API Key Updated - Data will begin showing shortly')
-            userid = current_user.id
-            current = mongo.db.mongo_user.find_one({"_id": ObjectId(userid)})
-            current['ss_key'] = apiform.key.data
-            current['ss_secret'] = apiform.secret.data
-            mongo.db.mongo_user.update({"_id":ObjectId(userid)},{'$set':{'ss_key':apiform.key.data, 'ss_secret':apiform.secret.data}},upsert=True)
-            #current_user.ss_key = apiform.key.data
-            #current_user.ss_secret = apiform.secret.data
-            return redirect(url_for('import.UserProfile'))
+            SSAPIForm(apiform)
 
         if inventoryform.validate_on_submit() and inventoryform.submit.data:
-            f = inventoryform.file.data
-            filename = secure_filename(f.filename)
-            save_path = os.path.join(app.root_path,'uploads', filename)
-            f.save(save_path)
-            wb = xlrd.open_workbook(save_path)
-            ws = wb.sheet_by_index(0)
-            if ws.cell_value(0,0) != 'Inventory Status Report' :
-                flash('File does not match expected Inventory Stock Report format')
-            else:
-                #mongo.db.inventory.remove({"Owner":email})
-                col_len = len(ws.col(0))
-                r = 8
-                update_count = 0
-                while r < col_len :
-                    sku = str(ws.cell_value(r,1))
-                    name = ws.cell_value(r,2).encode('utf8')
-                    if sku == "":
-                        #Shipstation merges name column vertically
-                        # Leaving  blank sku cells below
-                        r = r+1
-                        continue
-
-                    row = {}
-                    row['SKU'] = sku
-                    row['Product Name'] = name
-                    row['Last Cost'] = ws.cell_value(r,3)
-                    row['Avg Cost'] = ws.cell_value(r,4)
-                    row['Stock'] = ws.cell_value(r,6)
-                    row['Allocated'] = ws.cell_value(r,7)
-                    row['Available'] = ws.cell_value(r,8)
-                    row['Reorder Threshold'] = ws.cell_value(r,9)
-                    row['Owner'] = session['email']
-                    mongo.db.inventory.update({'SKU':str(sku)},{'$set': row},upsert=True)
-                    r = r+1
-                    update_count+=1
-                flash('Imported '+ str(update_count) + ' Inventory Stock Values')
-                sb.ExpireCache('init_timeout')
-                mongo.db.mongo_user.update({'email':session['email']},{'$set':{'inventory_updated':nice_now}})
+            InventoryFormController(inventoryform)
             return redirect(url_for('import.UserProfile'))
 
         if aliasform.validate_on_submit() and aliasform.submit.data:
-
-            f = aliasform.file.data
-            filename = secure_filename(f.filename)
-            save_path = os.path.join(app.root_path,'uploads', filename)
-            f.save(save_path)
-            wb = xlrd.open_workbook(save_path)
-            ws = wb.sheet_by_index(0)
-            col_len = len(ws.col(0))
-            r = 2
-            if ws.cell_value(0,2) != 'Store Name':
-                flash('Uploaded File does not match expected Alias Report Format')
-            else:
-                mongo.db.alias.remove({"Owner":session['email']})
-
-                while r < col_len :
-                    row = {}
-                    row['Product SKU'] = str(ws.cell_value(r,0))
-                    row['Alias'] = str(ws.cell_value(r,1))
-                    row['Store Name'] = str(ws.cell_value(r,2))
-                    row['Store ID'] = str(ws.cell_value(r,3))
-                    row['Owner'] = session['email']
-                    mongo.db.alias.update({'Alias':str(ws.cell_value(r,1))},row,upsert=True)
-                    r+=1
-                flash('Imported ' + str(col_len-2) + ' Alias Records')
-
-                sb.ExpireCache('init_timeout')
-
-                mongo.db.mongo_user.update({'email':session['email']},{'$set':{'alias_updated':now}})
+            AliasUploadController(aliasform)
             return redirect(url_for('import.UserProfile'))
 
         if request.method == 'POST' and fbaform.submit.data:
@@ -1547,10 +1717,10 @@ class ProfileView(BaseView):
 
         return self.render('admin/user_profile.html', inventoryform=inventoryform, aliasform=aliasform, apiform=apiform, fbaform=fbaform)
 
-class SettingsView(BaseView):
+class Settings(BaseView):
     @expose('/', methods=('GET','POST'))
     @login_required
-    def SettingsIndex(self):
+    def User(self):
         sb = StockBoy()
 
         return self.render('admin/settings.html')
@@ -1570,37 +1740,70 @@ class SettingsView(BaseView):
 
         return self.render('admin/billing.html', charges=charges)
 
-class SalesView(BaseView):
+    @expose('/setup/', methods=('GET','POST'))
+    @login_required
+    def SetupView(self):
+        sb = StockBoy()
+        ss_api_form = SSAPI(prefix='apiform')
+        if ss_api_form.validate_on_submit() and ss_api_form.submit.data:
+            if ss_api_form.key.data and ss_api_form.secret.data :
+                SSAPIForm(ss_api_form)
+                return redirect(url_for('settings.StepTwoView'))
+            else:
+                flash('Please complete the api form')
+
+        return self.render('admin/setup.html', ss_api_form=ss_api_form)
+
+    @expose('/setup_step2/', methods=('GET','POST'))
+    @login_required
+    def StepTwoView(self):
+        sb = StockBoy()
+        inventoryform = FileUploadForm(prefix='inventoryform')
+        if 'inventoryform-file' not in request.files:
+            flash('No file Sent')
+        else:
+            InventoryFormController(inventoryform)
+            flash(session['upload_status'])
+            if session['upload_status']:
+                flash('Success!')
+                return redirect(url_for('settings.StepThreeView'))
+            else :
+                flash('Upload Failed, Please try again')
+                return redirect(url_for('settings.StepTwoView'))
+
+        return self.render('admin/setup_step2.html', inventoryform=inventoryform)
+
+    @expose('/setup_step3/', methods=('GET','POST'))
+    @login_required
+    def StepThreeView(self):
+        sb = StockBoy()
+        aliasupload = FileUploadForm(prefix='aliasupload')
+
+        if 'aliasupload-file' not in request.files:
+            flash('No file Sent')
+            flash(request.files)
+        else:
+            AliasUploadController(aliasupload)
+            if session['upload_status']:
+                flash("Give us about an hour to get your account ready. We'll Email you when it's done.")
+                flash("Filling out billing information now is optional, but recommended.")
+                return redirect(url_for('settings.BillingView'))
+            else :
+                return redirect(url_for('settings.StepThreeView'))
+
+        return self.render('admin/setup_step3.html', aliasupload=aliasupload)
+
+class Sales(BaseView):
     @expose('/', methods=('GET', 'POST'))
     @login_required
-    def SalesIndex(self):
+    def SalesOverview(self):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
 
         sb = StockBoy()
         sb.DateFormController()
 
-
-
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-            #flash('Session cached')
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-
-            sb.ReportDictBuilder(cursor)
-            #flash('Orders Built')
-
-        else:
-            pass
-            #flash ('Orders Cached')
-
+        sb.OrderCacheAndCursor()
 
         return self.render('admin/sales_index.html')
 
@@ -1612,22 +1815,7 @@ class SalesView(BaseView):
 
         sb = StockBoy()
         sb.DateFormController()
-
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-            #flash('Session cached')
-
-
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-
-            sb.ReportDictBuilder(cursor)
+        sb.OrderCacheAndCursor()
 
         return self.render('admin/sales_channels.html')
 
@@ -1639,20 +1827,8 @@ class SalesView(BaseView):
 
         sb = StockBoy()
         sb.DateFormController()
-        if sb.IsExpired('orders_timeout') or not session['processed']:
+        sb.OrderCacheAndCursor()
 
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'createDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']},
-                {'advancedOptions.storeId':store}
-            ]}
-            )
-
-            sb.ReportDictBuilder(cursor)
 
 
 
@@ -1668,28 +1844,13 @@ class SalesView(BaseView):
 
         sb = StockBoy()
         sb.DateFormController()
-
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-            #flash('Session cached')
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-
-            sb.ReportDictBuilder(cursor)
-            #flash('Orders Built')
-
+        sb.OrderCacheAndCursor()
 
         return self.render('admin/sales_cogs.html')
 
     @expose('/orders/', methods=('GET', 'POST'))
     @login_required
-    def Orders(self):
+    def OrdersOverview(self):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
 
@@ -1697,21 +1858,7 @@ class SalesView(BaseView):
 
         sb.DateFormController()
 
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-            #flash('Session cached')
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-
-            sb.ReportDictBuilder(cursor)
-
-            #flash('Orders Built')
+        sb.OrderCacheAndCursor()
 
         return self.render('admin/sales_orders.html')
 
@@ -1760,116 +1907,19 @@ class InventoryView(BaseView):
                 sb.ExpireCache('orders_timeout')
                 sb.ExpireCache('fba_timeout')
 
-
                 return jsonify(data={'message': 'Cost is {}'.format(costform.cost.data)})
 
 
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-
-            ## Pull resources - 1 for loop each - look into session storage
-            sb.ReportDictBuilder(cursor)
-            session['orders_timeout'] = now
-            #flash('Orders Built')
-
-        ssd = session['sku_sales_dict']
-        fbad = session['fba_dict']
-        pd = session['product_dict']
-
-        total_sold = 0
-        total_inventory = 0
-        total_value = 0
-        total_skus = 0
-
-        ## Final Results go here
-        inventory_results_dict = {}
-
-        for item in session['inventory_dict'].values() :
-            if 'SKU' not in item :
-                continue
-            sku = item['SKU']
-            inventory_results_dict[sku] = {}
-            row = inventory_results_dict[sku]
-            row['SKU'] = sku
-            row['name'] = pd[sku]['name']
-            if sku in ssd :
-                row['img'] = ssd[sku]['img']
-            else :
-                row['img'] = '#'
-            stock = item['Stock']
-            row['stock'] = stock
-            if sku in fbad :
-                if 'InStockSupplyQty' in fbad[sku]:
-                    fba = fbad[sku]['InStockSupplyQty']
-                else :
-                    fba = fbad[sku]['TotalSupplyQty']
-            else :
-                fba = 0
-            row['fba'] = fba
-            ## Add Cost Logic (funciton call) Here
-            if 'SB Cost' in item:
-                row['cost'] = item['SB Cost']
-            else:
-                row['cost'] = item['Last Cost']
-
-            if sku in ssd :
-                sold = ssd[sku]['qty']
-            else :
-                sold = 0
-            row['sold'] = sold
-
-            if sold > 1 :
-                burn = float(float(sold)/float(default_range))
-                days = (stock+fba)/burn
-
-            else :
-                days = 9999
-            row['days'] = days
 
 
-            total_inventory += stock+fba
-            total_sold += sold
-            total_value += row['cost']*(stock+fba)
-            total_skus += 1
-
-
-        #### THIS NEEDS TO BE PAGE SPECIFIC
-        #afd
-        #top_bar = session['top_bar']
-
-        ## Run some tests here to see if you get the same values
-
-        session['top_bar']['page_total_inventory'] = total_inventory
-        session['top_bar']['page_total_sold'] = total_sold
-        session['top_bar']['page_total_value'] = total_value
-        session['top_bar']['page_total_skus'] = total_skus
-
-        total_qty = session['top_bar']['total_qty']
-
-        if total_qty > 0:
-            total_days = total_inventory/(total_qty/session['delta_range'])
-        else :
-            total_days = 0
-            #flash('No inventory uploaded')
-
-        session['top_bar']['total_days'] = total_days
-        #session['top_bar'] = top_bar
-        session['inventory_results_dict'] = inventory_results_dict
+        sb.OrderCacheAndCursor()
+        sb.InventoryResultsBuilder()
 
 
         return self.render('admin/inventory_index.html', costform=costform)
 
     @expose('/suppliers/', methods=('GET','POST'))
-    def SupplierIndex(self):
+    def SupplierOverview(self):
         supplierform = SupplierForm(prefix='supplierform')
         sb = StockBoy()
         sb.SupplierDictBuilder()
@@ -1909,7 +1959,7 @@ class InventoryView(BaseView):
 class ProductView(BaseView):
     @expose('/',methods=('GET', 'POST'))
     @login_required
-    def ProductIndex(self) :
+    def ProductOverview(self) :
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
         else:
@@ -1944,23 +1994,8 @@ class ProductView(BaseView):
 
 
         ## Use this as an instance variable, pass via class
-
-        sb.DateFormController()
-
-        cursor = mongo.db.orders.find(
-        {'$and':[
-            {'orderDate':
-                {'$lte': session['end'],
-                '$gte':session['start']}
-            },
-            {'owner':session['email']},
-
-        ]}
-        )
-        sb.ProductDictBuilder()
-        #sb.SSInventoryBuilder()
-        sb.ReportDictBuilder(cursor)
-
+        sb.OrderCacheAndCursor()
+        sb.InventoryResultsBuilder()
         #sb.OrderedTogether(target_sku)
         inv_stock_value = 0
         item_cost = 0
@@ -2186,62 +2221,14 @@ class CustomerView(BaseView) :
     @expose('/',methods=('GET', 'POST'))
     @login_required
     def CustomerIndex(self) :
+        if request.method == 'POST':
+            session['dateformvalue'] = request.form.get('daterange')
 
-        session['dateformvalue'] = default_range
-        #DateForm()
+        sb = StockBoy()
+        sb.DateFormController()
+        sb.OrderCacheAndCursor()
 
-        order_value_list = []
-        #Query - get orders for current users in date range
-        range_search = mongo.db.orders.find({'$and':[
-        {'orderDate':{'$lte': session['end'], '$gte':session['start']}},
-        {'owner':session['email']} ]})
-        num_orders = range_search.count()
-
-        # Returns dictionary of orders, centered around customer details
-        customer_dict = {}
-        for order in range_search :
-            if 'customerId' in order.keys():
-                customer_id = order['customerId']
-            else :
-                customer_id = None
-
-            if customer_id is None :
-                continue
-                # Amazon orders do not have a customer ID
-                # [DONE] Create identifyable hash of the Street Address + Zip code
-                # Create a customer ID with 'AMZ' prefix
-                # Update MongoDB with both values
-                address = order['shipTo']['street1']+'::'+order['shipTo']['postalCode']
-                #customer_id = base64.urlsafe_b64encode(hashlib.md5(address.encode('utf8')).digest())
-                customer_id=customer_id.decode('ascii')
-
-                #mongo.db.orders.update({'_id' : order['_id']},{'customerId':customer_id})
-
-            if customer_id not in customer_dict :
-                customer_dict.update({customer_id:{
-                'num_orders': 0,
-                'customer_value': 0
-                }})
-
-            customer_dict[customer_id]['name'] = order['shipTo']['name']
-            customer_dict[customer_id]['city'] = order['shipTo']['city']
-            customer_dict[customer_id]['state'] = order['shipTo']['state']
-            customer_dict[customer_id]['email'] = order['customerEmail']
-            customer_dict[customer_id]['num_orders'] +=1
-            customer_dict[customer_id]['customer_value'] += order['orderTotal']
-            order_value_list.append(order['orderTotal'])
-
-        unique_customers = len(customer_dict)
-        avg_order_value = sum(order_value_list) / len(order_value_list)
-        repeat_rate = float(num_orders)/float(unique_customers)
-        top_bar=[]
-        top_bar.append(num_orders)
-        top_bar.append(unique_customers)
-        top_bar.append(avg_order_value)
-        top_bar.append(repeat_rate)
-
-
-        return self.render('admin/customer_index.html', customer_dict=customer_dict, top=top_bar, daterange=formvalue, startdate= start_date, enddate=end_date)
+        return self.render('admin/customer_index.html')
 
     @expose('/<customer_id>',methods=('GET', 'POST'))
     def CustomerDetails(self, customer_id):
@@ -2310,138 +2297,19 @@ class ShipmentView(BaseView):
     @login_required
     #def is_visible(self):
         #return False
-    def index(self):
-        formvalue = session['dateformvalue']
+    def ShipmentOverview(self):
+
         if request.method == 'POST':
-            formvalue = request.form.get('daterange')
+            session['dateformvalue'] = request.form.get('daterange')
 
-        start, end = DateFormHanlder(formvalue)
-        start_date = start.strftime('%m/%d/%Y')
-        end_date = end.strftime('%m/%d/%Y')
-        delta_range = (end - start).days
+        sb = StockBoy()
+        sb.DateFormController()
 
-        date_dict, labels = DateDictBuilder(start, end)
-
-        ship_dict = ShipmentDictBuilder(start, end)
-
-        shipment_range_order_ids = []
-        for shipment in ship_dict :
-            shipment_range_order_ids.append(ship_dict[shipment]['orderId'])
-
-        order_cursor = mongo.db.orders.find({'orderId':{'$in':shipment_range_order_ids}})
-
-        ## Order Dict Builder
-        order_dict = {}
-        for order in order_cursor :
-            order_id = order['orderId']
-            order_dict[order_id] = {}
-            od = order_dict[order_id]
-
-            od['orderDate'] = order['orderDate']
-            order_qty = 0
-
-            if 'items' in order.keys():
-                for item in order['items']:
-                    order_qty += item['quantity']
-
-            od['orderQty'] = order_qty
-
-        shipment_count = 0
-        handle_times = []
-        shipping_times = []
-        shipment_chart = []
-        shipment_costs = []
-        qty_total = 0
-        shipper_dict = ShipperDictBuilder()
-
-        for shipment in ship_dict :
-            row = []
-            shipment_id = shipment
-
-            shipper_id = ship_dict[shipment]['userId']
-            shipper_name = shipper_dict[shipper_id]['name']
-            row.append(shipper_name)
-
-            order_id = ship_dict[shipment_id]['orderId']
-            row.append(shipment_id)
-
-            row.append(ship_dict[shipment]['name'])
-            try:
-                order_date = order_dict[order_id]['orderDate']
-            except:
-                flash(str(order_id) +" Not able to include this order for some reason")
-                continue
-            create_date = ship_dict[shipment]['createDate']
-
-            handle_time = create_date - order_date
-            # handle_time > 0 :
-            days = handle_time.days
-            seconds = handle_time.total_seconds()
-            hours = seconds // 3600
-            hours = hours - (days*24)
-            minutes = (seconds % 3600) // 60
-            seconds = seconds % 60
-            handle_time_string = '{} days, {} hours'.format(days, hours)
-
-            row.append(handle_time_string)
-
-            if 'actual_delivery_date' in ship_dict[shipment].keys() :
-                shipping_time = ship_dict[shipment]['actual_delivery_date'] - create_date
-                shipping_times.append(shipping_time)
-            else :
-                shipping_time = 'NA'
-
-            row.append(shipping_time)
-
-            order_qty = order_dict[order_id]['orderQty']
-            row.append(order_qty)
-            qty_total += order_qty
-
-            row.append(ship_dict[shipment]['shipmentCost'])
-            shipment_costs.append(ship_dict[shipment]['shipmentCost'])
-
-            row.append(shipper_id)
-            shipment_count += 1
-            shipment_chart.append(row)
-
-            date_dict[create_date.year][create_date.month][create_date.day]+= 1
-
-        values = []
-        for year in date_dict.values() :
-            for month in year.values() :
-                for day in month.values() :
-                    values.append(day)
+        sb.ShipmentDictBuilder()
 
 
-        top_bar = []
-        top_bar.append(shipment_count)
+        return self.render('admin/shipment_index.html')
 
-        if len(handle_times) > 0:
-            average_handletime = sum(handle_times, timedelta(0)) / len(handle_times)
-            #average_handletime = average_handletime.hours
-            #days = handle_time.days
-            seconds = average_handletime.total_seconds()
-            hours = int(seconds) / 3600
-            hours = hours - (days*24)
-            #minutes = (seconds % 3600) // 60
-            #seconds = seconds % 60
-            avg_handle_time_string = '{} d, {} h'.format(days, hours)
-        else :
-            average_handletime = 0
-            avg_handle_time_string = 'handle time'
-
-
-        top_bar.append(avg_handle_time_string)
-        if len(shipment_costs) > 0 :
-            average_cost = sum(shipment_costs)/len(shipment_costs)
-
-        else :
-            average_cost = 0
-
-        top_bar.append(average_cost)
-        top_bar.append(qty_total/delta_range)
-
-        return self.render('admin/shipment_index.html',  top=top_bar,orders=shipment_chart,  daterange=formvalue, startdate= start_date, enddate=end_date, labels=labels, values=values)
 
 
 ######################################
@@ -2499,22 +2367,23 @@ admin = flask_admin.Admin(
 # ADD ADMIN VIEWS
 #################
 #admin.add_view(InventoryEditor(Inventory,'Inventory',name='Inventory',menu_icon_type='fa',menu_icon_value='fa-archive'))
-admin.add_view(SalesView(name="Sales", category='Sales', endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-area-chart'))
-admin.add_view(SalesView(name="COGS", category='Sales', endpoint='sales/cogs', menu_icon_type='fa', menu_icon_value='fa-cogs'))
-admin.add_view(SalesView(name="Channels", category='Sales', endpoint='sales/channels', menu_icon_type='fa', menu_icon_value='fa-tasks'))
-admin.add_view(SalesView(name="Orders", category='Sales', endpoint='sales/orders', menu_icon_type='fa', menu_icon_value='fa-sticky-note-o'))
+admin.add_view(Sales(name="Overview", category='Sales', endpoint='sales', menu_icon_type='fa', menu_icon_value='fa-area-chart'))
+admin.add_view(Sales(name="COGS", category='Sales', endpoint='sales/cogs', menu_icon_type='fa', menu_icon_value='fa-cogs'))
+admin.add_view(Sales(name="Channels", category='Sales', endpoint='sales/channels', menu_icon_type='fa', menu_icon_value='fa-tasks'))
+admin.add_view(Sales(name="Orders", category='Sales', endpoint='sales/orders', menu_icon_type='fa', menu_icon_value='fa-sticky-note-o'))
 
 
-admin.add_view(InventoryView(name="Inventory", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive', category='Inventory'))
+admin.add_view(InventoryView(name="Overview", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive', category='Inventory'))
 admin.add_view(InventoryView(name="Suppliers", endpoint="inventory/suppliers",  menu_icon_type='fa', menu_icon_value='fa-ambulance', category='Inventory'))
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
 admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
-admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
+if 'amazon_mws_api' in results :
+    admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
+admin.add_view(Settings(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
 admin.add_view(ProfileView(name='Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
-admin.add_view(SettingsView(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
-admin.add_view(SettingsView(name='Billing', endpoint='settings/billing', menu_icon_type='fa', menu_icon_value='fa-cog'))
+admin.add_view(Settings(name='Reset Cache', endpoint='settings/billing', menu_icon_type='fa', menu_icon_value='fa-cog'))
 
 #admin.add_sub_view(SupplierView())
 

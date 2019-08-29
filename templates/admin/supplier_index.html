@@ -70,7 +70,7 @@
           <!-- small box -->
           <div class="small-box bg-danger">
             <div class="inner">
-              <h3>{{session['top_bar']['supplier_average_lead_time']}} Days</h3>
+              <h3>{{session['top_bar']['supplier_average_lead_time'] | round(2)}} Days</h3>
               <p>Avg. Lead Time</p>
           </div>
           <div class="icon">

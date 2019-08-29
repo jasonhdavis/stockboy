@@ -28,9 +28,38 @@
 
     {% set storeId = this_order['advancedOptions']['storeId']%}
 
-    <br><br><hr style="clear:both;"><br>
-<h2>Order Details</h2>
+
+</section>
+
+
+<section class="content">
+
+  <!--TOP BAR STAT BOXES -->
+  <div class="row">
+{% import 'admin/parts.html' as parts %}
+
+  {% set value = '$'+ "{:,.2f}".format(this_order['orderTotal']) %}
+  {{ parts.smallbox('Order Total', value=this_order['orderTotal'], color='bg-success' )}}
+
+  {% set shipping = '$'+ "{:,.2f}".format(this_order['shippingAmount']) %}
+
+  {{ parts.smallbox('Shipping Charged', value=shipping, color='bg-info' )}}
+
+
+  {{ parts.smallbox('Qty', value="{:,}".format(this_order['orderQuantity']), color='bg-warning' )}}
+
+  {{ parts.smallbox('Status', value=this_order['orderStatus']) }}
+
+
+<!-- ./col -->
+
+
+</div>
+<div class="row col-lg-12 col-12">
+  <h2>Order Details</h2>
+
 <div class="col-sm-4 float-left">
+
   <h4 style="border-bottom:#000 1px solid">Order Data</h4>
   <h4>Store: {{ session['store_dict'][storeId]['storeName']}}</h4>
   <h4>Order Date: {{this_order['orderDate']}}</h4>
@@ -66,35 +95,9 @@
       <h4>Customer Notes: {{this_order['customerNotes']}}</h4>
       </div>
 
-
+</div>
   </div>
 
-</section>
-
-
-<section class="content">
-
-  <!--TOP BAR STAT BOXES -->
-  <div class="row">
-{% import 'admin/parts.html' as parts %}
-
-  {% set value = '$'+ "{:,.2f}".format(this_order['orderTotal']) %}
-  {{ parts.smallbox('Order Total', value=this_order['orderTotal'], color='bg-success' )}}
-
-  {% set shipping = '$'+ "{:,.2f}".format(this_order['shippingAmount']) %}
-
-  {{ parts.smallbox('Shipping Charged', value=shipping, color='bg-info' )}}
-
-
-  {{ parts.smallbox('Qty', value="{:,}".format(this_order['orderQuantity']), color='bg-warning' )}}
-
-  {{ parts.smallbox('Status', value=this_order['orderStatus']) }}
-
-
-<!-- ./col -->
-
-
-</div>
         <!-- /.row -->
         <!-- Main row -->
         <div class="row">

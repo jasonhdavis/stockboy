@@ -1,0 +1,40 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+{{ super() }}
+
+<style type="text/css">
+.main-sidebar {display:none;}
+.content-wrapper, .main-footer {width:50%;margin-left:25%; margin-right:25%; }
+
+</style>
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>Welcome To Stockboy!</h1>
+    <p>Getting started is easy. Follow these three steps to connect your Shipstation Account</p>
+</section>
+<section class="content">
+  <div class="row col-12 mx-auto">
+  <div class="col-12 col-lg-12">
+  <h2>Step 1 - Add your Shipstation API (<a href="https://ss6.shipstation.com/#/settings/api" target="_blank">Get it Here</a>)</h2>
+  <form id="ss_api_form" action="{{ url_for('settings.SetupView') }}" method="POST" >
+    <h4>Key:</h4>
+    {{ ss_api_form.key(class="form-control") }}
+    <h4>Secret:</h4>
+    {{ ss_api_form.secret(label="Secret: ",class="form-control")}}
+    {{ ss_api_form.hidden_tag() }}
+    {{ss_api_form.CSRF}}
+    <div class="float-right">
+    {{ ss_api_form.submit }}
+    </div>
+  </form>
+  <!--TOP BAR STAT BOXES -->
+</div>
+</div>
+<hr>
+
+</section>
+{% endblock body %}
+{% block tail %}
+
+
+{% endblock tail %}

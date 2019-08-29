@@ -23,8 +23,9 @@
     <li class="active">{{sku}}</li>  </ol>
 
     <h1 style="clear:both;">
-      {% if sku in ssd %}<img class="product-image float-left" width="150px" src="{{ssd[sku]['img']}}">{% endif %}
+      {% if sku in ssd %}<img class="product-image float-left" width="150px" src="{{ssd[sku]['img']}}">
       {{product_dict[sku]['name']}}
+      {% endif %}
     </h1>
     <h4><a class='fa fa-barcode' onclick="window.open('./barcode/{{sku}}', '_blank', 'location=yes,height=370,width=420,scrollbars=no,status=yes');"> Print Barcode</a></h4>
     <h4>Inventory Days: {{"{:,.1f}".format(top_bar['days']) }}</h4>

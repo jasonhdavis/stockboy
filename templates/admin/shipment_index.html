@@ -14,105 +14,30 @@
         <section class="content-header">
 
           <h1>Shipments</h1>
-            <small>Shipments within date range. Use to calculate order cycle, handling time and shipping costs</small>
 
           <ol class="breadcrumb">
               <li><a href="#"><i class="fa fa-dashboard"></i> Dashboard</a></li>
               <li class="active">Products</li>
           </ol>
+          {% include 'admin/daterange.html' %}
 
-          <div class="date-picker col-xs-3">
-            <form id ='daterangeform' action="{{url_for('shipments.index')}}" method="post">
-              <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-                <input autocomplete="off" class="form-control" type="text" name="daterange" >
-                <input type="submit" name="submit" id="date-submit" value="Go">
-            </form>
-            <script>
-            $(function() {
-              $('input[name="daterange"]').daterangepicker({
-                ranges: {
-                'Today': [moment(), moment()],
-                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-            },
-                "alwaysShowCalendars": true,
-                "autoApply": true,
-                "startDate": "{{startdate}}",
-                "endDate": "{{enddate}}"
-            }, function(start, end, label) {
-              $('#daterangeform submit').click()
-            });
-            });
-            </script>
-        </div>
         </section>
 
         </section>
         <section class="content">
           <!-- Small boxes (Stat box) -->
           <div class="row">
-            <div class="col-lg-3 col-xs-6">
-              <!-- small box -->
-              <div class="small-box bg-success">
-                <div class="inner">
-                  <h3>{{ top[0] }}</h3>
-                  <p>Shipments</p>
-              </div>
-              <div class="icon">
-                  <i class="ion ion-pricetag"></i>
-              </div>
-              <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-          </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-info">
-            <div class="inner">
-              <h3>{{ top[1] }}</h3>
+            {% set value = "${:,.2f}".format(session['top_bar']['gross_sales']) %}
 
-              <p>Handling Time</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-stats-bars"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-warning">
-            <div class="inner">
-              <h3>${{"{:,.2f}".format(top[2])}}</h3>
+            {{ parts.smallbox('Gross Sales', value=value, color='bg-success' )}}
+          <!-- ./col -->
 
-              <p>Avg Shipping Cost</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-filing"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-danger">
-            <div class="inner">
-              <h3>{{"{:,.1f}".format(top[3])}}</h3>
+          {{ parts.smallbox('Qty Sold', value=session['top_bar']['total_qty'] , color='bg-info' )}}
 
-              <p>Qty Shipped Per Day</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-bonfire"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
+          {{ parts.smallbox('Unique Products Sold', value=session['top_bar']['total_skus_sold'], color='bg-warning' )}}
+
+          {{ parts.smallbox('Items Per Order', value="{:,.1f}".format(session['top_bar']['items_per_order']), color='bg-danger' )}}
+
         </div>
         <!-- /.row -->
         <!-- Main row -->
@@ -122,27 +47,27 @@
           <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
             <thead>
                 <tr>
+                  <th class="th-sm">Shipment ID</th>
                     <th class="th-sm">Shipper</th>
-                    <th class="th-sm">Shipment ID</th>
-                    <th class="th-sm">Status</th>
+                    <th class="th-sm">Order Number</th>
                     <th class="th-sm">Ship To</th>
                     <th class="th-sm">Handle Time</th>
-                    <th class="th-sm">Shipping Time</th>
+                    <th class="th-sm">Shipment Date</th>
                     <th class="th-sm">Qty</th>
                     <th class="th-sm">Cost</th>
                 </tr>
             </thead>
             <tbody >
-              {% for item in orders %}
+              {% for shipment in session['ship_dict'].values() %}
                 <tr>
-                    <td width="10%"><a href="../shipments/{{item[7]}}">{{item[0]}}</a></td>
-                    <td width="15%">{{item[1]}}</td>
-                    <td width="3%">--</td>
-                    <td width="20%">{{item[2]}}</td>
-                    <td width="10%">{{item[3]}}</td>
-                    <td width="10%">{{item[4]}}</td>
-                    <td width="10%">{{item[5]}}</td>
-                    <td width="10%">${{item[6]}}</td>
+                  <td width="15%">{{shipment['shipmentId']}}</td>
+                    <td width="10%"><a href="../shipments/"></a></td>
+                    <td width="3%">{{shipment['orderNumber']}}</td>
+                    <td width="20%">{{shipment['shipTo']['name']}}</td>
+                    <td width="10%"></td>
+                    <td width="10%">{{shipment['shipDate']}}</td>
+                    <td width="10%"></td>
+                    <td width="10%">${{shipment['shipmentCost']}}</td>
 
                 </tr>
                 {% endfor %}

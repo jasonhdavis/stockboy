@@ -48,8 +48,10 @@
     <thead>
         <tr>
 
-            <th class="th-sm">Order ID</th>
+            <th class="th-sm">Order Number</th>
             <th class="th-sm">Order Date</th>
+            <th class="th-sm">Order Status</th>
+
             <th class="th-sm">Store name</th>
             <th class="th-sm">Ship To Name</th>
             <th class="th-sm">Items</th>
@@ -60,9 +62,10 @@
     <tbody >
       {% for order in session['orders_dict'].values() %}
         <tr class="{{order['orderStatus']}}">
-            <td class="{{order['orderStatus']}}" width="10%"><a href="./{{order['orderId']}}">{{order['orderId']}}</a></td>
+            <td class="{{order['orderStatus']}}" width="10%"><a href="./{{order['orderId']}}">{{order['orderNumber']}}</a></td>
 
-            <td width="10%">{{order['orderDate'] }}</td>
+            <td width="10%">{{order['orderDate'].strftime('%Y-%m-%d at %H:%M') }}</td>
+            <td width="10%">{{order['orderStatus']}}</td>
             {% set storeid = order['advancedOptions']['storeId'] %}
             <td width="10%">{{session['store_dict'][storeid]['storeName'] }}</td>
 

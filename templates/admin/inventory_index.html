@@ -12,7 +12,7 @@
     <!-- Left col -->
     <section class="container">
         <section class="content-header">
-                <h1>Inventory</h1>
+                <h1>Inventory Overview</h1>
           <ol class="breadcrumb">
               <li><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
               <li class="active">Inventory</li>
@@ -21,66 +21,21 @@
         <section class="content">
           <!-- Small boxes (Stat box) -->
           <div class="row">
-            <div class="col-lg-3 col-xs-6">
-              <!-- small box -->
-              <div class="small-box bg-success">
-                <div class="inner">
-                  <h3>{{ "{:,.0f}".format(session['top_bar']['total_inventory']) }}</h3>
-                  <p>Total Inventory</p>
-              </div>
-              <div class="icon">
-                  <i class="ion ion-pricetag"></i>
-              </div>
-              <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-          </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-info">
-            <div class="inner">
-              <h3>${{ "{:,.2f}".format(session['top_bar']['total_stock_value']) }}</h3>
+            {{ parts.smallbox('Total Inventory', value=session['top_bar']['total_inventory'], color='bg-success' ) }}
 
-              <p>Inventory Value</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-stats-bars"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-warning">
-            <div class="inner">
-              <h3>{{session['inventory_dict']['meta']['sku_count']}}</h3>
+            {% set total_stock_value = '$'+ "{:,.2f}".format(session['top_bar']['total_stock_value']) %}
 
-              <p>SKUs</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-filing"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
+            {{ parts.smallbox('Inventory Value', value=total_stock_value, color='bg-info' ) }}
+
+            {% set sku_count = '$'+ "{:,.2f}".format(session['inventory_dict']['meta']['sku_count']) %}
+
+            {{ parts.smallbox('SKUs', value=sku_count, color='bg-warning' ) }}
+
+            {% set total_days = "{:,.2f}".format(session['top_bar']['total_days']) %}
+
+            {{ parts.smallbox('Total Days', value=total_days, color='bg-danger') }}
+
         </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-danger">
-            <div class="inner">
-              <h3>{{"{:,.1f}".format(session['top_bar']['total_days'])}}</h3>
-              <p>Avg. Days</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-bonfire"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        </div>
-        <!-- /.row -->
         <!-- Main row -->
         <div class="row">
           <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
@@ -117,9 +72,9 @@
                       </form>
 
                       </td>
-                    <td width="10%">{{item['fba']}}</td>
-                    <td width="20%">{{item['sold']}}</td>
-                    <td width="20%">{{"{:,.1f}".format(item['days'])}}</td>
+                    <td class="mx-auto" width="10%">{{item['fba']}}</td>
+                    <td class="mx-auto" width="20%">{{item['sold']}}</td>
+                    <td class="mx-auto" width="20%">{{"{:,.1f}".format(item['days'])}}</td>
 
                 </tr>
                 {% endfor %}

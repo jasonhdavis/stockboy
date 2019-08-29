@@ -1,0 +1,52 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+{{ super() }}
+
+<style type="text/css">
+.main-sidebar{display:none;}
+.content-wrapper, .main-footer {width:50%;margin-left:25%; margin-right:25%; }
+
+</style>
+<!-- Content Header (Page header) -->
+<section class="content-header">
+  <h1>Step 2, One More To Go!</h1>
+
+</section>
+<section class="content">
+  <div class="row col-12 mx-auto">
+  <div class="col-12 col-lg-12">
+    <p>Great! We check Shipstation for new orders every hour. We'll send you an email once this is completed for the first time.</p>
+    <p>In the meantime, we need some data from ShipStation we can't get from the API. This allows us to do fany stuff like calculate Inventory Days and Cost of Goods Sold</p>
+
+    <h2>Inventory Upload: (<a target="_blank" href="https://ss6.shipstation.com/#/dashboard/report/InvStock">Get It Here</a>)</h2>
+    <ul>
+      <li>Group Products By Parent SKU: No</li>
+      <li>Have More than one warehouse? Contact Us.</li>
+      <li>Export to Excel</li>
+
+      </ul>
+    <form id="inventoryform" method="POST" enctype='multipart/form-data' >
+      {{ inventoryform.hidden_tag() }}
+
+      {{ inventoryform.file}}
+      {{inventoryform.submit}}
+
+    </form>
+  <!--TOP BAR STAT BOXES -->
+
+  <p><em>*We recommend you update your inventory at least every week.</em></p>
+</div>
+</div>
+<hr>
+<div class="row col-12 mx-auto">
+<div class="col-6 col-lg-6 col-md-6 mx-auto">
+
+  <h2></h2>
+</div>
+</div>
+</section>
+{% endblock body %}
+{% block tail %}
+
+
+{% endblock tail %}

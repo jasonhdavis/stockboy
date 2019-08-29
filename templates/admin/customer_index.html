@@ -2,205 +2,127 @@
 {% block body %}
 {{ super() }}
 
-{% if current_user.is_authenticated %}
 
 <!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>Customer Loyalty</h1>
+  <ol class="breadcrumb">
+      <li c><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+      <li class="active"><a href="#"><i class="fa fa-user"></i>Customers</a></li>
 
-<section class="content" id="customer-index">
+  </ol>
+  {% include 'admin/daterange.html' %}
+</section>
+<section class="content">
+
+  <!--TOP BAR STAT BOXES -->
   <div class="row">
-    <!-- Left col -->
+    {% set aov = session['top_bar']['avg_order_value'] | round(2) %}
+    {% set discounts = "${:,.2f}".format(session['top_bar']['discounts']) %}
 
-    <section class="container">
-        <section class="content-header">
-                <h1>Customer Loyalty</h1>
-                  <small>All customers in date range. Total value in time frame and number of orders. Value calculated including shipping charges minus discounts (if discounts display as negative numbers in shipstation)</small>
-          <ol class="breadcrumb">
-              <li><a href="./"><i class="fa fa-dashboard"></i>Dashboard</a></li>
-              <li class="active">Customers</li>
-          </ol>
 
-            <div class="date-picker col-xs-3">
-              <form id ='daterangeform' action="{{url_for('customers.CustomerIndex')}}" method="post">
-                <label for="daterange"  class="col-2 col-form-label">Select Date Range</label>
-                  <input autocomplete="off" class="form-control" type="text" name="daterange" >
-                  <input type="submit" name="submit" id="date-submit" value="Go">
-              </form>
-              <script>
-              $(function() {
-                $('input[name="daterange"]').daterangepicker({
-                  ranges: {
-                  'Today': [moment(), moment()],
-                  'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                  'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                  'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                  'This Month': [moment().startOf('month'), moment().endOf('month')],
-                  'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-              },
-                  "alwaysShowCalendars": true,
-                  "autoApply": true,
-                  "startDate": "{{startdate}}",
-                  "endDate": "{{enddate}}"
-              }, function(start, end, label) {
-                $('#daterangeform submit').click()
-              });
-              });
-              </script>
-          </div>
+  {{ parts.smallbox('Unique Customers', value=session['top_bar']['unique_customers'], color='bg-success' ) }}
 
-        </section>
-        <div class="col-lg-12">
+  {{ parts.smallbox('Average Order Value', value=aov, color='bg-info' ) }}
 
-        <section class="content">
-          <!-- Small boxes (Stat box) -->
-          <div class="row">
-            <div class="col-lg-3 col-xs-6">
-              <!-- small box -->
-              <div class="small-box bg-success">
-                <div class="inner">
-                  <h3>{{"{:,}".format(top[0])}}</h3>
-                  <p>Number of Orders</p>
-              </div>
-              <div class="icon">
-                  <i class="ion ion-pricetag"></i>
-              </div>
-              <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-          </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-info">
-            <div class="inner">
-              <h3>{{"{:,}".format(top[1])}}</h3>
+  {{ parts.smallbox('Discounts', value=discounts, color='bg-warning') }}
 
-              <p>Unique Customers</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-stats-bars"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-warning">
-            <div class="inner">
-              <h3>${{"{:,.2f}".format(top[2])}}</h3>
-
-              <p>Avg Order Value</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-filing"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        <div class="col-lg-3 col-xs-6">
-          <!-- small box -->
-          <div class="small-box bg-danger">
-            <div class="inner">
-              <h3>{{"{:,.2f}".format(top[3])}}</h3>
-
-              <p>Repeat Rate</p>
-          </div>
-          <div class="icon">
-              <i class="ion ion-bonfire"></i>
-          </div>
-          <a href="#" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
-        </div>
-        <!-- ./col -->
-        </div>
-        <!-- /.row -->
-        <!-- Main row -->
-        <div class="row">
-          <table id="dtBasicExample" class="table table-striped table-bordered table-sm">
-            <thead>
-                <tr>
-                    <th class="th-sm">Customer ID</th>
-                    <th class="th-sm">Name</th>
-                    <th class="th-sm">Email</th>
-                    <th class="th-sm">City</th>
-                    <th class="th-sm">State</th>
-                    <th class="th-sm"># Orders</th>
-                    <th class="th-sm">Customer Value</th>
-                </tr>
-            </thead>
-            <tbody >
-              {% for customer_id in customer_dict %}
-                <tr>
-                    <td><a href="{{customer_id}}">{{customer_id}}</a></td>
-                    <td>{{ customer_dict[customer_id]['name'] }}</td>
-                    <td>{{ customer_dict[customer_id]['email'] }}</td>
-                    <td>{{ customer_dict[customer_id]['city'] }}</td>
-                    <td>{{ customer_dict[customer_id]['state'] }}</td>
-                    <td>{{ "{:,}".format(customer_dict[customer_id]['num_orders']) }}</td>
-                    <td>${{ "{:,.2f}".format(customer_dict[customer_id]['customer_value']) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-          </div>
-
-    </section>
-    <!-- /.Left col -->
+  {{ parts.smallbox('Repeat Customers', value=session['top_bar']['repeat_customers'], color='bg-danger' )}}
 
   </div>
-  <!-- /.row (main row) -->
+<!-- /.row -->
+<!-- Main row -->
+
+<div class="row">
+  <div class="col-lg-12 col-12">
+
+  <table id="customers" class="table table-striped table-bordered table-sm">
+    <button onclick="exportTableToCSV('stockboy-report.csv')">Export Table To CSV</button>
+
+    <thead>
+        <tr>
+
+            <th class="th-sm">Customer ID</th>
+            <th class="th-sm">Name</th>
+            <th class="th-sm">Email</th>
+            <th class="th-sm">City</th>
+            <th class="th-sm">State</th>
+            <th class="th-sm">Orders</th>
+            <th class="th-sm">Customer Value</th>
+
+        </tr>
+    </thead>
+    <tbody >
+      {% for customer in session['customer_sales_dict'].values() %}
+        <tr>
+
+            <td width="10%"><a href="./{{customer['customer_id']}}">{{customer['customer_id']}}</a></td>
+            <td width="10%">{{customer['name']}}</td>
+            <td width="10%">{{ customer['email'] }}</td>
+            <td width="10%">{{ customer['city'] }} </td>
+            <td width="10%">{{ customer['state'] }}</td>
+            <td width="10%">{{ customer['orders'] }}</td>
+            <td width="10%">$ {{ customer['sales'] | round(2)}}</td>
+
+        </tr>
+
+        {% endfor %}
+    </tbody>
+</table>
+  </div>
 </div>
 </section>
-<!-- /.content -->
-{% else %}
+{% endblock body %}
+{% block tail %}
+<script>
+  $(document).ready(function () {
+    $('#customers').DataTable({
+     "paging": true, // false to disable pagination (or any other option)
+     "order":[[6, "desc"]],
+     'iDisplayLength' : 100,
+     "language":{
+       "search":"",
+       "searchPlaceholder":"Search. . ."
+      }
+      });
+  $('.dataTables_length').addClass('bs-select');
+});
+</script>
 
-<center>
-  <section class="content" style="color: white">
-    <div class="col-sm-12">
-      <h1>Flask-Admin example</h1>
-      <p class="lead">
-        Authentication
-      </p>
-      <p>
-        This example shows how you can use Flask-Admin in an admin template, <br> here I used AdminLTE and <a href="https://pythonhosted.org/Flask-Security/index.html" target="_blank">Flask-Security</a> for authentication.
-      </p>
-      {% if not current_user.is_authenticated %}
+<script>
+function downloadCSV(csv, filename) {
+    var csvFile;
+    var downloadLink;
+    // CSV file
+    csvFile = new Blob([csv], {type: "text/csv"});
+    // Download link
+    downloadLink = document.createElement("a");
+    // File name
+    downloadLink.download = filename;
+    // Create a link to the file
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    // Hide download link
+    downloadLink.style.display = "none";
+    // Add the link to DOM
+    document.body.appendChild(downloadLink);
+    // Click download link
+    downloadLink.click();
+}
+      function exportTableToCSV(filename) {
+          var csv = [];
+          var rows = document.querySelectorAll("table tr");
+          for (var i = 0; i < rows.length; i++) {
+              var row = [], cols = rows[i].querySelectorAll("td, th");
+              for (var j = 0; j < cols.length; j++)
+                  row.push('"'+cols[j].innerText+'"');
+              csv.push(row.join(","));
+          }
+          // Download CSV file
+          downloadCSV(csv.join("\n"), filename);
+      }
 
-      <p>You can register as a regular user, or log in as a superuser with the following credentials: <br><br>
 
-        email: <b>admin</b> <br>
-        password: <b>admin</b> <br>
-        <br>
-        <p>
-          <a class="btn btn-primary" href="{{ url_for('security.login') }}">Login</a> <a class="btn btn-default" href="{{ url_for('security.register') }}">Register</a>
-        </p>
-        {% endif %}
-        <br>
-        <p>
-          <a class="btn btn-primary" href="/"><i class="glyphicon glyphicon-chevron-left"></i> Back</a>
-        </p>
-      </div>
-    </section>
-  </center>
 
-  <br><br><br><br><br><br><br><br><br>
-  <br><br><br><br><br><br><br><br><br><br>
-  {% endif %}
+</script>
 
-  {% endblock body %}
-
-  {% block tail %}
-  <script>
-    $(document).ready(function () {
-      $('#dtBasicExample').DataTable({
-       "paging": false, // false to disable pagination (or any other option)
-       "order":[[6, "desc"]],
-       "language":{
-         "search":"",
-         "searchPlaceholder":"Search. . ."
-        }
-        });
-    $('.dataTables_length').addClass('bs-select');
-  });
-  </script>
-  {% endblock tail %}
+{% endblock tail %}
