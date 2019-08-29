@@ -45,7 +45,7 @@ from flask_login import LoginManager
 from fba_locations import fba_locations
 from mongoengine.queryset.base import BaseQuerySet
 
-import stripe
+#import stripe
 
 import xlrd
 ## We're developing on Python 2 and 3
@@ -76,7 +76,7 @@ nice_now = datetime.strftime(now,"%m-%d-%Y at %I:%M %p")
 
 today = datetime(now.year, now.month, now.day, 23,59,59)
 
-stripe.api_key = app.config['STRIPE_PRIV']
+#stripe.api_key = app.config['STRIPE_PRIV']
 
 email = current_user.email #'lazyluckyfree@gmail.com'#
 ### Development Email Address
