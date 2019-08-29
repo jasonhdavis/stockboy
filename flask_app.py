@@ -78,6 +78,11 @@ today = datetime(now.year, now.month, now.day, 23,59,59)
 
 stripe.api_key = app.config['STRIPE_PRIV']
 
+email = current_user.email #'lazyluckyfree@gmail.com'#
+### Development Email Address
+#session['email'] = 'matt@charlieandwobbs.com'
+session['email'] = email
+
 ##########
 ### PLACEHOLDER VARIABLES FOR USER SETTINGS
 ########
@@ -172,10 +177,7 @@ def CheckUserFeatures(sb_auth):
 class StockBoy() :
 
     def __init__(self):
-        email = current_user.email #'lazyluckyfree@gmail.com'#
-        ### Development Email Address
-        #session['email'] = 'matt@charlieandwobbs.com'
-        session['email']=email
+
         #self.results = {}
         ### User Feature & Setup Check ###
         #flash(user_details)
