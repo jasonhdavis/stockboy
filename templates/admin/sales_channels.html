@@ -7,8 +7,10 @@
 <section class="content-header">
     <h1>Sales Channels</h1>
   <ol class="breadcrumb">
-      <li class="active"><a href="#"><i class="fa fa-dashboard"></i>Dashboard</a></li>
-      <li><a href="../"><i class="fa fa-chart"></i>Sales</a></li>
+      <li ><a href="../../"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+      <li><a href="../"><i class="fa fa-area-chart"></i>Sales</a></li>
+      <li class="active"><i class="fa fa-tasks"></i> Channels</li>
+
   </ol>
   {% include 'admin/daterange.html' %}
 </section>
@@ -28,7 +30,6 @@
 
 {{ parts.smallbox('Average Burn Rate', value=session['top_bar']['avg_burn'], color='bg-danger' )}}
 
-<a class="float-right" href="/dashboard/sales">See More Sales > </a>
 </div>
 <!-- /.row -->
 <!-- Main row -->
@@ -60,6 +61,7 @@
         {% endfor %}
     </tbody>
   </table>
+</div>
 </div>
 
 
@@ -116,7 +118,7 @@
                   scaleShowVerticalLines: true,
                   scaleShowGridLines : true,
                   barShowStroke : true,
-                  scaleShowLabels: false,
+                  scaleShowLabels: true,
                   bezierCurve: false,
                   responsive: true,
                   legend:{

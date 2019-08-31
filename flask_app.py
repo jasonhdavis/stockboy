@@ -162,6 +162,11 @@ def CheckUserFeatures(sb_auth):
         if 'inventory_updated' not in user_details:
             return redirect('settings.StepThreeView')
 
+        if 'ss_lastupdated' not in user_details :
+            return "We're working hard to crunch your data now. \
+            It usually takes an hour, but could be longer depending on how busy we are.\
+             If this takes longer than a day, please email us at stockboy.co@gmail.com."
+
         return sb_auth(*args, **kwargs)
     return decorated_function
 
@@ -182,6 +187,7 @@ class StockBoy() :
         email = current_user.email #'lazyluckyfree@gmail.com'#
         ### Development Email Address
         #session['email'] = 'matt@charlieandwobbs.com'
+        #session['email'] = 'MeganERager@gmail.com'
         session['email'] = email
 
         #flash(user_features)
@@ -315,7 +321,13 @@ class StockBoy() :
 
     def ExpireCache(self, timer):
         ## Simple helper to set the timeout
-        session[timer] = now - timedelta(days=100)
+        timer_list = ['init_timeout','alias_timeout','orders_timeout','inventory_timeout','fba_timeout']
+
+        if timer == 'all':
+            for timer in timer_list :
+                session[timer] = now - timedelta(days=100)
+        else :
+            session[timer] = now - timedelta(days=100)
 
     def IsExpired(self, timer) :
         ## If you wanted to adjust cache duration,
@@ -351,9 +363,22 @@ class StockBoy() :
         # Check the Order Timeout Cache & Process'd
         # Determine if report needs to be rebuilt
 
+        if 'target_sku' in session.keys() :
+            ## Don't cache individual items
+            #flash(session['target_sku'])
+            session['reset_after'] = True
+            self.ExpireCache('orders_timeout')
 
-        if self.IsExpired('orders_timeout') or not session['processed']:
+        else :
+            session['target_sku'] = 'All'
+            #flash(session['target_sku'])
+
+
+        if self.IsExpired('orders_timeout') or not session['processed'] or session['target_sku'] != 'All' or session['reset_after'] :
             #flash('Session cached')
+            if 'end' or 'start' not in session :
+                session['start'], session['end'] = DateFormHandler(False)
+
             cursor = mongo.db.orders.find(
             {'$and':[
                 {'orderDate':
@@ -431,16 +456,8 @@ class StockBoy() :
         ### Cache this and encourage user to set a default range to maximize speed to delivery
         session['orders_timeout'] = now
 
-        if 'target_sku' in self.results.keys() :
-            target_sku = self.results['target_sku']
-            ## Don't cache individual items
 
-            self.ExpireCache('orders_timeout')
-
-        else :
-            target_sku = 'All'
-
-
+        target_sku = session['target_sku']
         #### OUTPUT ########
         ### TOTAL SALES DICTS ######
         category_sales_dict = {}
@@ -893,7 +910,7 @@ class StockBoy() :
         ### Pull SKU details, candidate for primary loop iter
         session['sales_rank'] = sorted(sales_rank.items(), key=lambda kv: kv[1], reverse=True)
         session['qty_rank'] = sorted(qty_rank.items(), key=lambda kv: kv[1], reverse=True)
-
+        session.pop('target_sku')
 
         session['top_bar'] = {
             'total_qty': total_qty,
@@ -920,6 +937,7 @@ class StockBoy() :
 
 
             }
+
 
     def OrderedTogether(self, sku):
         ordered_together_dict = session['ordered_together_dict']
@@ -1733,15 +1751,14 @@ class Settings(BaseView):
     def BillingView(self):
 
         sb = StockBoy()
-        charges= stripe.Charge.list()
-
+        #charges= stripe.Charge.list()
         sb.ExpireCache('init_timeout')
         sb.ExpireCache('alias_timeout')
         sb.ExpireCache('orders_timeout')
         sb.ExpireCache('inventory_timeout')
         sb.ExpireCache('fba_timeout')
 
-        return self.render('admin/billing.html', charges=charges)
+        return self.render('admin/billing.html')
 
     @expose('/setup/', methods=('GET','POST'))
     @login_required
@@ -1783,7 +1800,7 @@ class Settings(BaseView):
         aliasupload = FileUploadForm(prefix='aliasupload')
 
         if 'aliasupload-file' not in request.files:
-            flash('No file Sent')
+            #flash('No file Sent')
             flash(request.files)
         else:
             AliasUploadController(aliasupload)
@@ -1871,6 +1888,7 @@ class Sales(BaseView):
 
         sb = StockBoy()
 
+        session['target_sku'] = 'All'
         if str(orderId) not in 'orders_dict'  :
             #flash('Session cached')
             cursor = mongo.db.orders.find(
@@ -1983,7 +2001,7 @@ class ProductView(BaseView):
             formvalue = session['dateformvalue']
 
         sb = StockBoy()
-        sb.results['target_sku'] = target_sku
+        session['target_sku'] = target_sku
 
         supplierselect = SupplierSelect(prefix='supplierselect')
         supplierselect.supplier.choices=[('Null','Select One')]
@@ -2341,7 +2359,9 @@ def serve_file_in_dir(path):
 
     return send_from_directory(request_file_dir, filename)
 
-
+@app.errorhandler(500)
+def pageNotFound(error):
+    return render_template('admin/500.html'), 500
 
 #### START FLASK ADMIN
 ### DASHBOARD & LOGIN
@@ -2381,8 +2401,9 @@ admin.add_view(InventoryView(name="Suppliers", endpoint="inventory/suppliers",  
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
 admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
-if 'amazon_mws_api' in results :
-    admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
+#if 'amazon_mws_api' in results :
+
+admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(Settings(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
 admin.add_view(ProfileView(name='Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
@@ -2395,6 +2416,9 @@ admin.add_view(Settings(name='Reset Cache', endpoint='settings/billing', menu_ic
 ## Sub Items - Not visible in menu
 # define a context processor for merging flask-admin's template context into the
 # flask-security views.
+
+
+
 @security.context_processor
 def security_context_processor():
     return dict(
