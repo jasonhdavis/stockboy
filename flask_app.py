@@ -1751,14 +1751,21 @@ class Settings(BaseView):
     def BillingView(self):
 
         sb = StockBoy()
-        charges= stripe.Charge.list()
+        #charges= stripe.Charge.list()
         sb.ExpireCache('init_timeout')
         sb.ExpireCache('alias_timeout')
         sb.ExpireCache('orders_timeout')
         sb.ExpireCache('inventory_timeout')
         sb.ExpireCache('fba_timeout')
 
+
+        if request.method == 'POST':
+            pass
+
+
         return self.render('admin/billing.html')
+
+
 
     @expose('/setup/', methods=('GET','POST'))
     @login_required

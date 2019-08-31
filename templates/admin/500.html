@@ -1,0 +1,94 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>500 Error</title>
+
+  {% block head_meta %}
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Stockboy - Better Reporting for ECommerce Sellers">
+  <meta name="author" content="Jason Davis">
+  <link rel="icon" type="image/png" href="{{url_for('static',filename='img/stockboy-favicon.png')}}" />
+
+  {% endblock head_meta %}
+
+  {% block head_css %}
+
+  <!-- Bootstrap 3.3.6 -->
+  <link href="{{url_for('static',filename='css/bootstrap.css')}}" rel="stylesheet"></link>
+  <!-- Datatables Styles -->
+  <link href="{{url_for('static',filename='css/datatables.min.css')}}" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <!-- Ionicons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ionicons/2.0.1/css/ionicons.min.css">
+  <!-- Theme style -->
+  <link href="{{url_for('static',filename='css/AdminLTE.css')}}" rel="stylesheet"></link>
+  <!-- AdminLTE Skins. Choose a skin from the css/skins folder instead of downloading all of them to reduce the load. -->
+  <link href="{{url_for('static',filename='css/skins/_all-skins.min.css')}}" rel="stylesheet"></link>
+  <!-- Daterange picker -->
+  <link href="{{url_for('static',filename='plugins/daterangepicker/daterangepicker.css')}}" rel="stylesheet"></link>
+  <!-- Flask-admin admin styles -->
+
+
+
+  {% endblock head_css%}
+
+  {% block head %}
+  {% endblock head%}
+
+  {% block head_tail %}
+  {% endblock head_tail%}
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+
+  <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js'></script>
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-146646717-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-146646717-1');
+  </script>
+
+</head>
+<body class="hold-transition skin-blue sidebar-mini">
+
+  {% block page_body %}
+
+  <!-- TOP NAVBAR -->
+  <div class="wrapper">
+    {% if current_user.is_authenticated %}
+    <header class="main-header">
+      <!-- Logo -->
+      {% block brand %}
+        <!-- mini logo for sidebar mini 50x50 pixels -->
+        <!-- logo for regular state and mobile devices -->
+
+      {% endblock brand%}
+
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>Ooooo, That's a problem.</h1>
+    <p>It looks like something isn't working quite right.</p>
+</section>
+<section class="content">
+  <div class="row col-12 mx-auto">
+  <div class="col-12 col-lg-12">
+  <h2>New account? Give us a minute to get things setup.</h2>
+  <h2>Still having trouble? Reach out: stockboy.co@gmail.com</h2>
+  <!--TOP BAR STAT BOXES -->
+</div>
+</div>
+<hr>
+
+</section>
+
+{% endif %}
+{%endblock page_body %}
