@@ -1,4 +1,6 @@
+
 {% extends 'admin/master.html' %}
+<!-- Load Stripe.js on your website. -->
 
 {% block body %}
 {% if current_user.is_authenticated %}
@@ -15,12 +17,12 @@
         </section>
         <section class="content-header">
 <div class="user-profile">
+  <script src="https://js.stripe.com/v3"></script>
 
   <div class="row float-left">
     <div class="col-md-8 col-md-offset-2">
 
       <div class="card card-info">
-        <form method="POST">
         <div class="card">
           <div class="card-header">Email Address</div>
           <div class="card-body">{{current_user.email}}<br><a href="../change/">Change Password</a></div>
@@ -28,13 +30,20 @@
         </div>
 
         <div class="card card-info">
-          <div class="card-header">Defaults</div>
+          <div class="card-header">Subscribe</div>
 
-            <div class="card-body"><strong>Features Placeholder</strong><ul>
+            <div class="card-body"><strong>Subscribe to Stockboy Basic</strong>
+              <p>Ready to subscribe? Stockboy provides a single, affordable plan. Sign up fast and cancel anytime.</p>
+  <!-- Create a button that your customers click to complete their purchase. Customize the styling to suit your branding. -->
+  <div width="100%">
+  <button
+    style="background-color:#6772E5;color:#FFF;padding:8px 12px;border:0;border-radius:4px;font-size:1em; margin-left:auto; margin-right:auto;"
+    class="mx-auto" id="checkout-button-plan_FilTSpNzuz9SOZ"
+    role="link">Subscribe
+  </button>
+</div>
+  <div id="error-message"></div>
 
-            </ul>
-            </div>
-        </form>
 
   </div>
 
@@ -43,6 +52,35 @@
   </div>
 </div>
 </section>
+
+  <script>
+    var stripe = Stripe('pk_live_MHG6p1lrK69BGvd7lAIwO6gT00CRgeuRja');
+
+    var checkoutButton = document.getElementById('checkout-button-plan_FilTSpNzuz9SOZ');
+    checkoutButton.addEventListener('click', function () {
+      // When the customer clicks on the button, redirect
+      // them to Checkout.
+      stripe.redirectToCheckout({
+        items: [{plan: 'prod_Fio1MYNjD4vQRj', quantity: 1}],
+
+        // Do not rely on the redirect to the successUrl for fulfilling
+        // purchases, customers may not always reach the success_url after
+        // a successful payment.
+        // Instead use one of the strategies described in
+        // https://stripe.com/docs/payments/checkout/fulfillment
+        successUrl: window.location.protocol + '//stockboy.co/settings/billing/',
+        cancelUrl: window.location.protocol + '//stockboy.co/settings/billing/',
+      })
+      .then(function (result) {
+        if (result.error) {
+          // If `redirectToCheckout` fails due to a browser or network
+          // error, display the localized error message to your customer.
+          var displayError = document.getElementById('error-message');
+          displayError.textContent = result.error.message;
+        }
+      });
+    });
+  </script>
 {% endif %}
 
 {% endblock %}
