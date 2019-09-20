@@ -54,22 +54,22 @@
 </section>
 
   <script>
-    var stripe = Stripe('pk_live_MHG6p1lrK69BGvd7lAIwO6gT00CRgeuRja');
+    var stripe = Stripe('pk_test_WQPEkyE17YvDSmpLlrLJS79p00anR0xcGp');
 
     var checkoutButton = document.getElementById('checkout-button-plan_FilTSpNzuz9SOZ');
     checkoutButton.addEventListener('click', function () {
       // When the customer clicks on the button, redirect
       // them to Checkout.
       stripe.redirectToCheckout({
-        items: [{plan: 'prod_Fio1MYNjD4vQRj', quantity: 1}],
+        items: [{plan: 'plan_Fio1HSxJOJMH7q', quantity: 1}],
 
         // Do not rely on the redirect to the successUrl for fulfilling
         // purchases, customers may not always reach the success_url after
         // a successful payment.
         // Instead use one of the strategies described in
         // https://stripe.com/docs/payments/checkout/fulfillment
-        successUrl: window.location.protocol + '//stockboy.co/settings/billing/',
-        cancelUrl: window.location.protocol + '//stockboy.co/settings/billing/',
+        successUrl: window.location.protocol + '//stockboy.co/dashboard/settings/billing/',
+        cancelUrl: window.location.protocol + '//stockboy.co/dashboard/settings/billing/',
       })
       .then(function (result) {
         if (result.error) {

@@ -123,6 +123,12 @@ def DateFormHandler(formvalue):
         #start = timezone.localize(start)
         #end = timezone.localize(end)
 
+    #flash(start)
+    #flash(end)
+    session['start'] = start
+    session['end'] = end
+    #flash(session['start'])
+    #flash(session['end'])
     return start, end
 
 def StripTimezone(datestring) :
@@ -184,11 +190,11 @@ class StockBoy() :
 
         self.results={}
 
-        email = current_user.email #'lazyluckyfree@gmail.com'#
+        #email =  #'lazyluckyfree@gmail.com'#
         ### Development Email Address
         #session['email'] = 'matt@charlieandwobbs.com'
         #session['email'] = 'MeganERager@gmail.com'
-        session['email'] = email
+        session['email'] = current_user.email
 
         #flash(user_features)
 
@@ -248,12 +254,15 @@ class StockBoy() :
 
         amz_address = session['address_list']
 
+        if street1 == "" :
+            return False
+
         ship_add = street1.upper()
         ship_add = AddressEndingStrip(ship_add)
 
-
         if ship_add in amz_address :
             amz_transfer = True
+
         else :
             amz_transfer = False
 
@@ -362,6 +371,8 @@ class StockBoy() :
         # Typical Report Action is to cycle order
         # Check the Order Timeout Cache & Process'd
         # Determine if report needs to be rebuilt
+        #flash ('Inside  OrderCacheAndCursor ' + str(session['end']))
+        #flash ('Inside  OrderCacheAndCursor ' + str(session['start']))
 
         if 'target_sku' in session.keys() :
             ## Don't cache individual items
@@ -373,11 +384,33 @@ class StockBoy() :
             session['target_sku'] = 'All'
             #flash(session['target_sku'])
 
+        set_cursor = False
+        ## Add checks that mean orders must be re-crunched
 
-        if self.IsExpired('orders_timeout') or not session['processed'] or session['target_sku'] != 'All' or session['reset_after'] :
-            #flash('Session cached')
-            if 'end' or 'start' not in session :
-                session['start'], session['end'] = DateFormHandler(False)
+        ## If order timeout has expired
+        if self.IsExpired('orders_timeout') :
+            set_cursor = True
+
+        ## If date range has not been processe
+        if not session['processed']:
+            set_cursor = True
+
+        ## If individual sku is selected
+        if session['target_sku'] != 'All':
+            set_cursor = True
+
+        ## If exiting individual sku page
+        if session.get('reset_after') :
+            set_cursor = True
+
+        #flash('Session cached')
+        ## If we don't have session variables (startup), create some
+        if not session.get('end') or not session.get('start' ) :
+            session['start'], session['end'] = DateFormHandler(False)
+            #flash ('Inside  start or end not in session' + str(session['end']))
+
+
+        if set_cursor:
 
             cursor = mongo.db.orders.find(
             {'$and':[
@@ -388,6 +421,9 @@ class StockBoy() :
                 {'owner':session['email']}
             ]}
             )
+                #flash (session['start'])
+
+                #flash ('Inside  OrderCacheAndCursor' + str(session['end']))
 
             self.ReportDictBuilder(cursor)
 
@@ -601,7 +637,7 @@ class StockBoy() :
                 if amz_transfer :
                     bdd_thisday['meta']['fba']+= qty
                     shipped_to_amz+= qty
-
+                    orders_dict[order_id]['fba_qty'] = qty
                     continue
 
                 if item_sku in inventory_dict :
@@ -1682,12 +1718,13 @@ class DashboardView(AdminIndexView):
     def index(self):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
-
         sb = StockBoy()
-
+        #flash('Dashboard pre Date form '+ str(session['end']))
         sb.DateFormController()
+        #flash('Dashboard pre ordercachecursor form '+ str(session['end']))
         sb.OrderCacheAndCursor()
         #flash('Orders Built')
+        #flash('Dashboard post ordercachecursor form '+ str(session['end']))
 
         sku_sales_sort = []
         for item in session['sku_sales_dict'].values() :
@@ -1865,6 +1902,7 @@ class Sales(BaseView):
 
     @expose('/cogs/', methods=('GET', 'POST'))
     @login_required
+    @CheckUserFeatures
     def COGS(self):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
@@ -1918,6 +1956,7 @@ class Sales(BaseView):
 class InventoryView(BaseView):
     @expose('/',methods=(['GET','POST']))
     @login_required
+    @CheckUserFeatures
     def index(self):
 
         sb = StockBoy()
@@ -2004,10 +2043,14 @@ class ProductView(BaseView):
     def Product(self, target_sku):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
+            flash('post')
         else:
             formvalue = session['dateformvalue']
-
         sb = StockBoy()
+
+        sb.DateFormController()
+
+
         session['target_sku'] = target_sku
 
         supplierselect = SupplierSelect(prefix='supplierselect')
@@ -2408,9 +2451,8 @@ admin.add_view(InventoryView(name="Suppliers", endpoint="inventory/suppliers",  
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
 admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
-#if 'amazon_mws_api' in results :
-
-admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
+if 'amazon_mws_api' in results :
+    admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(Settings(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
 admin.add_view(ProfileView(name='Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))

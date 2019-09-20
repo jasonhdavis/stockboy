@@ -51,11 +51,11 @@
             <th class="th-sm">Order Number</th>
             <th class="th-sm">Order Date</th>
             <th class="th-sm">Order Status</th>
-
             <th class="th-sm">Store name</th>
             <th class="th-sm">Ship To Name</th>
             <th class="th-sm">Items</th>
-            <th class="th-sm">Qty</th>
+            <th class="th-sm">FBA Qty</th>
+            <th class="th-sm">Total Qty</th>
 
         </tr>
     </thead>
@@ -74,15 +74,23 @@
               {{order['shipTo']['name']}}
 
               {% else %}
-              <a href="../../customers/{{order['customerId']}}">{{order['shipTo']['name']}}</a></td>
+              <a href="../../customers/{{order['customerId']}}">{{order['shipTo']['name']}}</a>
               {% endif %}
-            <td width="40%">
+              </td>
+            <td width="10%">
               {% set ns=namespace(qty= 0) %}
 
             {% for item in order['items'] %}
               {{ item['name'] }},
               {% set ns.qty= ns.qty + item['quantity']%}
             {% endfor %}
+            <td width="10%">
+            {% if 'fba_qty' in order %}
+            {{order['fba_qty']}}
+            {% else %}
+            0
+            {% endif %}
+            </td>
             <td width="10%">{{ ns.qty }} </td>
 
         </tr>

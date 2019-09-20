@@ -6,9 +6,9 @@ __pycache__/
 #Custom
 *.DS_Store
 config.py
-cron/
-uploads/
-cache/
+cron/*
+uploads/*
+cache/*
 stockboy/
 
 # C extensions

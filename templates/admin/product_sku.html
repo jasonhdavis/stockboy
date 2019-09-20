@@ -24,7 +24,11 @@
 
     <h1 style="clear:both;">
       {% if sku in ssd %}<img class="product-image float-left" width="150px" src="{{ssd[sku]['img']}}">
-      {{product_dict[sku]['name']}}
+        {% if sku in product_dict %}
+          {{product_dict[sku]['name']}}
+        {% endif %}
+        {% else %}
+        ssd[sku]['name']
       {% endif %}
     </h1>
     <h4><a class='fa fa-barcode' onclick="window.open('./barcode/{{sku}}', '_blank', 'location=yes,height=370,width=420,scrollbars=no,status=yes');"> Print Barcode</a></h4>
@@ -38,6 +42,8 @@
 <h2>Product Details</h2>
 <div class="col-sm-4 float-left">
   <h4 style="border-bottom:#000 1px solid">Listing</h4>
+  {% if sku in product_dict %}
+
   <h5>Created: {{product_dict[sku]['createDate']}}</h5>
   <h5>Category: {{product_dict[sku]['productCategory']['name']}}</h5>
   <h5>Weight: {{product_dict[sku]['weight']}}</h5>
@@ -46,6 +52,8 @@
     <h5>Fullfillment SKU: {{fba_dict[sku]['SellerSKU']}} </h5>
     <h5>ASIN: <a href="https://www.amazon.com/gp/product/{{fba_dict[sku]['ASIN']}}">{{fba_dict[sku]['ASIN']}}</a></h5>
   {% endif %}
+  {% endif %}
+
   </div>
   <div class="col-sm-4 float-left">
   <h4 style="border-bottom:#000 1px solid">Inventory</h4>
@@ -65,6 +73,8 @@
   <div class="col-sm-4 float-left">
     <h4 style="border-bottom:#000 1px solid">Purchasing</h4>
     <div id="supplier_details_static">
+      {% if sku in product_dict %}
+
       <button id="supplier_edit">Edit</button>
 
         <h5>Supplier: {{ product_dict[sku]['supplier_name'] }}</h5>
@@ -96,7 +106,7 @@
     </form>
 
   </div>
-
+  {% endif %}
 </section>
 
 
