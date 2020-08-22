@@ -45,11 +45,12 @@ from flask_login import LoginManager
 from fba_locations import fba_locations
 from mongoengine.queryset.base import BaseQuerySet
 
-import stripe
+#import stripe
 
 import xlrd
 ## We're developing on Python 2 and 3
 env_version = sys.version_info
+
 
 
 # Create Fldask application
@@ -76,7 +77,11 @@ nice_now = datetime.strftime(now,"%m-%d-%Y at %I:%M %p")
 
 today = datetime(now.year, now.month, now.day, 23,59,59)
 
-stripe.api_key = app.config['STRIPE_PRIV']
+#stripe.api_key = app.config['STRIPE_PRIV']
+
+
+
+
 
 ##########
 ### PLACEHOLDER VARIABLES FOR USER SETTINGS
@@ -377,11 +382,13 @@ class StockBoy() :
         if 'target_sku' in session.keys() :
             ## Don't cache individual items
             #flash(session['target_sku'])
-            session['reset_after'] = True
-            self.ExpireCache('orders_timeout')
+            if session['target_sku'] != 'All':
+                session['reset_after'] = True
+                self.ExpireCache('orders_timeout')
 
         else :
             session['target_sku'] = 'All'
+            session['reset_after'] = False
             #flash(session['target_sku'])
 
         set_cursor = False
@@ -389,18 +396,26 @@ class StockBoy() :
 
         ## If order timeout has expired
         if self.IsExpired('orders_timeout') :
+            #flash('Order_timeout expired')
             set_cursor = True
 
         ## If date range has not been processe
         if not session['processed']:
+            #flash('Proecessed expired')
+
             set_cursor = True
 
         ## If individual sku is selected
         if session['target_sku'] != 'All':
+            #flash('target_sku expired')
+
             set_cursor = True
 
         ## If exiting individual sku page
-        if session.get('reset_after') :
+        if session['reset_after'] :
+            #flash('reset_after expired')
+            #flash(session['target_sku'])
+
             set_cursor = True
 
         #flash('Session cached')
@@ -2416,6 +2431,8 @@ def pageNotFound(error):
 #### START FLASK ADMIN
 ### DASHBOARD & LOGIN
 
+
+
 admin = flask_admin.Admin(
     app, name='Stockboy',
     base_template='my_master.html',
@@ -2451,8 +2468,8 @@ admin.add_view(InventoryView(name="Suppliers", endpoint="inventory/suppliers",  
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
 admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
-if 'amazon_mws_api' in results :
-    admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
+#if 'amazon_mws_api' in session['user_details'] :
+admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(Settings(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
 admin.add_view(ProfileView(name='Import', endpoint='import', menu_icon_type='fa', menu_icon_value='fa-cog'))
