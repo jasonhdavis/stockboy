@@ -104,9 +104,9 @@
           pointPadding: 1,
           lineTension: 0.2,
           data : [
-          {% for year in session['by_day_dict'].keys() %}
-          {% for month in session['by_day_dict'][year].keys() %}
-          {% for day in session['by_day_dict'][year][month].keys() %}
+          {% for year in session['by_day_dict'].keys() | sort %}
+          {% for month in session['by_day_dict'][year].keys() | sort %}
+          {% for day in session['by_day_dict'][year][month].keys() | sort %}
             {{ session['by_day_dict'][year][month][day]['meta']['sales'] | round(2) }},
           {% endfor %}
           {% endfor %}

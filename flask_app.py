@@ -9,6 +9,7 @@ import copy
 import pytz
 import json
 import re
+import collections
 from functools import wraps
 from operator import itemgetter
 from datetime import datetime, timedelta
@@ -36,6 +37,8 @@ from flask_wtf.file import FileField, FileRequired
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import CombinedMultiDict
+#from werkzeug.contrib.profiler import ProfilerMiddleware, MergeStream
+
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from bson import json_util
@@ -46,16 +49,15 @@ from fba_locations import fba_locations
 from mongoengine.queryset.base import BaseQuerySet
 
 #import stripe
-
 import xlrd
 ## We're developing on Python 2 and 3
 env_version = sys.version_info
 
 
-
 # Create Fldask application
 app = Flask(__name__)
 app.config.from_pyfile('config.py')
+
 sess = Session()
 sess.init_app(app)
 csrf = CSRFProtect()
@@ -80,6 +82,14 @@ today = datetime(now.year, now.month, now.day, 23,59,59)
 #stripe.api_key = app.config['STRIPE_PRIV']
 
 
+#############
+#Performance Profiling
+#############
+#app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
+
+#profilelog = open('profiler.log', 'w')
+#stream = MergeStream(sys.stdout, profilelog)
+#profiler = ProfilerMiddleware(app, stream)
 
 
 
@@ -219,6 +229,7 @@ class StockBoy() :
             session['init_timeout'] = now
 
 
+
         if self.IsExpired('alias_timeout'):
             self.AliasDictBuilder()
             session['alias_timeout'] = now
@@ -308,6 +319,7 @@ class StockBoy() :
             start, end = DateFormHandler(session['dateformvalue'])
         else :
             start, end = DateFormHandler(default_range)
+            #session['dateformvalue'] = default_range
 
         start_date = start.strftime('%m/%d/%Y')
         end_date = end.strftime('%m/%d/%Y')
@@ -379,19 +391,10 @@ class StockBoy() :
         #flash ('Inside  OrderCacheAndCursor ' + str(session['end']))
         #flash ('Inside  OrderCacheAndCursor ' + str(session['start']))
 
-        if 'target_sku' in session.keys() :
-            ## Don't cache individual items
-            #flash(session['target_sku'])
-            if session['target_sku'] != 'All':
-                session['reset_after'] = True
-                self.ExpireCache('orders_timeout')
 
-        else :
-            session['target_sku'] = 'All'
-            session['reset_after'] = False
-            #flash(session['target_sku'])
 
         set_cursor = False
+
         ## Add checks that mean orders must be re-crunched
 
         ## If order timeout has expired
@@ -406,17 +409,20 @@ class StockBoy() :
             set_cursor = True
 
         ## If individual sku is selected
-        if session['target_sku'] != 'All':
+        if 'target_sku' in session.keys():
             #flash('target_sku expired')
 
             set_cursor = True
 
         ## If exiting individual sku page
-        if session['reset_after'] :
-            #flash('reset_after expired')
-            #flash(session['target_sku'])
+        if 'reset_after' in session.keys():
+            if session['reset_after']:
+                #flash('reset_after expired')
+                #flash(session['target_sku'])
+                set_cursor = True
+        else:
+            session['reset_after'] = False
 
-            set_cursor = True
 
         #flash('Session cached')
         ## If we don't have session variables (startup), create some
@@ -507,8 +513,11 @@ class StockBoy() :
         ### Cache this and encourage user to set a default range to maximize speed to delivery
         session['orders_timeout'] = now
 
-
-        target_sku = session['target_sku']
+        if 'target_sku' in session.keys():
+            target_sku = session['target_sku']
+            session.pop('target_sku')
+        else:
+            target_sku = 'All'
         #### OUTPUT ########
         ### TOTAL SALES DICTS ######
         category_sales_dict = {}
@@ -525,6 +534,7 @@ class StockBoy() :
         ##### BY DAY DICTS ######
         by_day_dict = copy.deepcopy(session['date_dict']) ## This does not need to be passed to the session
         #channel_sales_dict = copy.deepcopy(self.results['date_dict'])
+        #flash('Before Date Dict Build: '+ str(datetime.now() ))
 
         for year in by_day_dict.values() :
             for month in year.values() :
@@ -541,6 +551,8 @@ class StockBoy() :
                         'shipping':0},
                         'channel':{}
                         }
+
+        #flash('After Date Dict Build: '+ str(datetime.now() ))
 
         ## Top Bar / Top level metrics
         total_qty = 0
@@ -578,6 +590,7 @@ class StockBoy() :
         #### Inventory Available
         #### Product Category
         ####
+        #flash('Pre order loop: '+ str(datetime.now() ))
 
         for order in order_cursor :
             ## Just the raw orders in a dict
@@ -914,6 +927,7 @@ class StockBoy() :
         ########################
         #### ROLLUP RESULTS ####
         ########################
+        #flash('Post order loop: '+ str(datetime.now() ))
 
         # By ID results
         session['category_sales_dict'] = category_sales_dict
@@ -961,7 +975,6 @@ class StockBoy() :
         ### Pull SKU details, candidate for primary loop iter
         session['sales_rank'] = sorted(sales_rank.items(), key=lambda kv: kv[1], reverse=True)
         session['qty_rank'] = sorted(qty_rank.items(), key=lambda kv: kv[1], reverse=True)
-        session.pop('target_sku')
 
         session['top_bar'] = {
             'total_qty': total_qty,
@@ -1109,6 +1122,8 @@ class StockBoy() :
 
         for i in range(delta_range):
             iter_date = start+timedelta(days=i)
+            flash(str(iter_date))
+
             year = iter_date.year
             month = iter_date.month
             day = iter_date.day
@@ -1454,7 +1469,6 @@ def ItemChartBuilder(cursor, date_dict, alias_dict, item_sku):
               values.append(day)
 
     return item_chart, values, shipped_to_amz
-
 def AliasDictBuilder(cursor):
     ## Alias Dictionary can be built based on context
     ## For example, a single sku or all Owner Alias, etc
@@ -1750,9 +1764,6 @@ class DashboardView(AdminIndexView):
 
         session['sku_sales_sort'] = sku_sales_sort
 
-
-
-        session['sku_sales_sort'] = sku_sales_sort
         return self.render('admin/index.html')
 
 class ProfileView(BaseView):
@@ -1879,9 +1890,9 @@ class Sales(BaseView):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
 
+        #flash('start: '+str(datetime.now()))
         sb = StockBoy()
         sb.DateFormController()
-
         sb.OrderCacheAndCursor()
 
         return self.render('admin/sales_index.html')
@@ -1948,8 +1959,8 @@ class Sales(BaseView):
 
         sb = StockBoy()
 
-        session['target_sku'] = 'All'
-        if str(orderId) not in 'orders_dict'  :
+        #session['target_sku'] = 'All'
+        if str(orderId) not in session['orders_dict'].keys()  :
             #flash('Session cached')
             cursor = mongo.db.orders.find(
             {'$and':
@@ -1962,6 +1973,7 @@ class Sales(BaseView):
             #flash('Orders Built')
             ## Expire the cache, because this is an a-typical call
             sb.ExpireCache('orders_timeout')
+
         else:
             pass
             #flash ('Orders Cached')
@@ -2047,6 +2059,7 @@ class ProductView(BaseView):
         else:
             dateformvalue = default_range
 
+
         sb = StockBoy()
         sb.DateFormController()
         sb.OrderCacheAndCursor()
@@ -2058,9 +2071,9 @@ class ProductView(BaseView):
     def Product(self, target_sku):
         if request.method == 'POST':
             session['dateformvalue'] = request.form.get('daterange')
-            flash('post')
         else:
             formvalue = session['dateformvalue']
+
         sb = StockBoy()
 
         sb.DateFormController()
@@ -2081,6 +2094,8 @@ class ProductView(BaseView):
 
         ## Use this as an instance variable, pass via class
         sb.OrderCacheAndCursor()
+        session['reset_after'] = True
+
         sb.InventoryResultsBuilder()
         #sb.OrderedTogether(target_sku)
         inv_stock_value = 0
@@ -2182,6 +2197,7 @@ class FBAView(BaseView):
         fba_minimum = 6
 
         sb.DateFormController()
+        sb.InventoryResultsBuilder()
         #temporarily resolve transfer to session from results
         #session['delta_range'] = sb.results['delta_range']
 
@@ -2462,13 +2478,12 @@ admin.add_view(Sales(name="COGS", category='Sales', endpoint='sales/cogs', menu_
 admin.add_view(Sales(name="Channels", category='Sales', endpoint='sales/channels', menu_icon_type='fa', menu_icon_value='fa-tasks'))
 admin.add_view(Sales(name="Orders", category='Sales', endpoint='sales/orders', menu_icon_type='fa', menu_icon_value='fa-sticky-note-o'))
 
-
-admin.add_view(InventoryView(name="Overview", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive', category='Inventory'))
-admin.add_view(InventoryView(name="Suppliers", endpoint="inventory/suppliers",  menu_icon_type='fa', menu_icon_value='fa-ambulance', category='Inventory'))
 admin.add_view(ProductView(name="Products", endpoint='product', menu_icon_type='fa', menu_icon_value='fa-shopping-bag'))
 admin.add_view(CustomerView(name="Customers", endpoint='customers', menu_icon_type='fa', menu_icon_value='fa-users'))
 admin.add_view(ShipmentView(name="Shipments", endpoint='shipments', menu_icon_type='fa', menu_icon_value='fa-truck'))
 #if 'amazon_mws_api' in session['user_details'] :
+admin.add_view(InventoryView(name="Overview", endpoint='inventory', menu_icon_type='fa', menu_icon_value='fa-archive', category='Inventory'))
+admin.add_view(InventoryView(name="Suppliers", endpoint="inventory/suppliers",  menu_icon_type='fa', menu_icon_value='fa-ambulance', category='Inventory'))
 admin.add_view(FBAView(name="FBA", endpoint='fba', menu_icon_type='fa', menu_icon_value='fa-amazon'))
 #admin.add_view(BurnView(name="Burn", endpoint='burn', menu_icon_type='fa', menu_icon_value='fa-free-code-camp'))
 admin.add_view(Settings(name='Settings', endpoint='settings', menu_icon_type='fa', menu_icon_value='fa-cog'))
