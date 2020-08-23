@@ -1,6 +1,5 @@
 #!venv/bin/python
 # -*- coding: utf-8 -*-
-
 import os
 import time
 import csv
@@ -325,7 +324,7 @@ class StockBoy() :
         end_date = end.strftime('%m/%d/%Y')
         processed = False
 
-        if 'start_date' and 'end_date' in session:
+        if 'start_date' and 'end_date' in session.keys():
             if start_date == session['start_date']:
                 if end_date == session['end_date']:
                     processed = True
@@ -420,6 +419,7 @@ class StockBoy() :
                 #flash('reset_after expired')
                 #flash(session['target_sku'])
                 set_cursor = True
+                session.pop('reset_after')
         else:
             session['reset_after'] = False
 
@@ -511,6 +511,7 @@ class StockBoy() :
         ### Define a number of outputs that come from iterating through orders
         ### Create all possible dictionaries / outputs at once with a single loop of orders
         ### Cache this and encourage user to set a default range to maximize speed to delivery
+        flash('reports rebuilt')
         session['orders_timeout'] = now
 
         if 'target_sku' in session.keys():
@@ -1122,7 +1123,6 @@ class StockBoy() :
 
         for i in range(delta_range):
             iter_date = start+timedelta(days=i)
-            flash(str(iter_date))
 
             year = iter_date.year
             month = iter_date.month
@@ -1815,11 +1815,8 @@ class Settings(BaseView):
 
         sb = StockBoy()
         #charges= stripe.Charge.list()
-        sb.ExpireCache('init_timeout')
-        sb.ExpireCache('alias_timeout')
-        sb.ExpireCache('orders_timeout')
-        sb.ExpireCache('inventory_timeout')
-        sb.ExpireCache('fba_timeout')
+        sb.ExpireCache('all')
+
 
 
         if request.method == 'POST':
@@ -2185,10 +2182,12 @@ class FBAView(BaseView):
     @expose('/',methods=(['GET']))
     @login_required
     def index(self):
+        session['dateformvalue'] = False
+
+        #flash('start: '+str(datetime.now()))
         sb = StockBoy()
 
         ## Calculate Turn every X days (future user setting)
-        session['dateformvalue'] = False
         ## Target FBA days of inventory (future user setting)
         fba_target = 30
         ## Target Re-send frequency (future user setting)
@@ -2197,32 +2196,11 @@ class FBAView(BaseView):
         fba_minimum = 6
 
         sb.DateFormController()
+        sb.OrderCacheAndCursor()
         sb.InventoryResultsBuilder()
         #temporarily resolve transfer to session from results
         #session['delta_range'] = sb.results['delta_range']
-
-
-        if sb.IsExpired('orders_timeout') or not session['processed']:
-            #flash('Session cached')
-
-            cursor = mongo.db.orders.find(
-            {'$and':[
-                {'orderDate':
-                    {'$lte': session['end'],
-                    '$gte':session['start']}
-                },
-                {'owner':session['email']}
-            ]}
-            )
-            sb.ReportDictBuilder(cursor)
-
-            #flash('Orders Built')
-        else :
-            #flash('Orders Cached')
-            #return self.render('admin/fba_index.html')
-            pass
-
-
+        
         #sb.ProductDictBuilder()
         fba_dict = session['fba_dict']
         product_dict = session['product_dict']
